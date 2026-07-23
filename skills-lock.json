@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "skills": {
+    "amazon-bedrock": {
+      "source": "aws/agent-toolkit-for-aws",
+      "sourceType": "github",
+      "skillPath": "skills/core-skills/amazon-bedrock/SKILL.md",
+      "computedHash": "acb9135739cf7a4d6d7b06c107a9c455a725a9a1d62c3ff46a631418b4c8df33"
+    }
+  }
+}

@@ -1,39 +1,75 @@
-# Course Catalog API
+# Summer Camp
 
-Standalone AWS serverless API for asynchronous extraction of articulation-focused course data from PDF catalogs using Amazon Bedrock Data Automation.
+Course catalog extraction and articulation platform powered by AWS Bedrock.
 
-## Workflow
+## Monorepo Structure
 
-1. `POST /jobs` returns a job ID and a short-lived S3 upload URL.
-2. Upload the PDF with `PUT` to that URL.
-3. `POST /jobs/{jobId}/complete` starts asynchronous BDA processing.
-4. Poll `GET /jobs/{jobId}`.
-5. Retrieve `GET /jobs/{jobId}/result` after completion.
-
-The stack provisions the BDA document blueprint and an ASYNC Data Automation project automatically. The project attaches the course blueprint and the processing Lambda receives the generated project ARN and the `us.data-automation-v1` profile ARN. No manual BDA ARN configuration is required.
-
-## Static frontend
-
-The `frontend/` directory is a dependency-free browser UI. It uploads a PDF through the API, polls the job, and renders extracted courses. Set the deployed API URL in `frontend/config.js` before syncing:
-
-```js
-window.COURSE_CATALOG_CONFIG = { apiBaseUrl: 'https://your-api.execute-api.region.amazonaws.com' };
+```
+summer-camp/
+├── packages/
+│   ├── course-catalog-api/    # Course catalog extraction API (CDK/Lambda)
+│   └── shared/                # Shared types and utilities (future)
+├── .agents/                   # Kiro AI agents
+├── .kiro/                     # Kiro configuration
+└── package.json               # Root workspace configuration
 ```
 
-After deploying the CDK stack, sync the static files to the output `WebsiteBucketName`:
+## Getting Started
+
+### Prerequisites
+
+- Node.js >= 22.0.0
+- npm >= 10.0.0
+- AWS CLI configured with appropriate credentials
+- AWS CDK CLI (`npm install -g aws-cdk`)
+
+### Installation
 
 ```bash
-aws s3 sync frontend s3://YOUR_WEBSITE_BUCKET --delete
-```
-
-Open the `WebsiteUrl` stack output. For a one-off test, the API URL can also be supplied as `?api=https://your-api.execute-api.region.amazonaws.com`. The S3 website endpoint is intentionally simple for this prototype and serves over HTTP; use CloudFront or another HTTPS layer before production use.
-
-
-```bash
+# Install all workspace dependencies
 npm install
-npm test
+
+# Build all packages
 npm run build
-npm run synth
+
+# Run all tests
+npm run test
 ```
 
-This is a public prototype. Before production use, add authentication, stronger abuse prevention, document privacy controls, and human review for articulation decisions.
+## Packages
+
+### course-catalog-api
+
+Asynchronous course catalog extraction API using S3, Step Functions, and Bedrock Data Automation.
+
+Features:
+- PDF upload via presigned S3 URLs
+- Automatic page splitting and parallel processing
+- Course data extraction using Bedrock blueprints
+- DynamoDB storage with single-table design
+- Static web UI for testing
+
+[See package README](./packages/course-catalog-api/README.md) for details.
+
+## Development
+
+### Adding a New Package
+
+1. Create directory: `mkdir packages/my-new-package`
+2. Initialize: `cd packages/my-new-package && npm init`
+3. Set package name: `@summer-camp/my-new-package`
+4. Install from root: `npm install`
+
+### Running Commands in Specific Packages
+
+```bash
+# Run command in specific package
+npm run build -w packages/course-catalog-api
+
+# Deploy course catalog API
+npm run cdk deploy -w packages/course-catalog-api
+```
+
+## License
+
+MIT
