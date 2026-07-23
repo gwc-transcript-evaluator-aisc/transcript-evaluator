@@ -1,8 +1,8 @@
 {
-  "name": "summer-camp",
+  "name": "transcript-evaluator",
   "version": "0.1.0",
   "private": true,
-  "description": "Summer Camp - Course catalog and articulation platform",
+  "description": "Transcript evaluator: course catalog extraction and articulation platform powered by AWS Bedrock",
   "workspaces": [
     "packages/*"
   ],
@@ -10,15 +10,25 @@
     "build": "npm run build --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
-    "clean": "npm run clean --workspaces --if-present && rm -rf node_modules"
+    "clean": "npm run clean --workspaces --if-present && rm -rf node_modules",
+    "cdk": "cdk",
+    "synth": "cdk synth",
+    "deploy": "cdk deploy --all"
   },
   "engines": {
     "node": ">=22.0.0",
     "npm": ">=10.0.0"
   },
+  "devDependencies": {
+    "aws-cdk": "2.1132.1",
+    "aws-cdk-lib": "2.262.0",
+    "constructs": "10.7.1",
+    "tsx": "4.19.4",
+    "typescript": "5.8.3"
+  },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/yourusername/summer-camp.git"
+    "url": "git+https://github.com/gwc-transcript-evaluator-aisc/transcript-evaluator.git"
   },
   "keywords": [
     "course-catalog",

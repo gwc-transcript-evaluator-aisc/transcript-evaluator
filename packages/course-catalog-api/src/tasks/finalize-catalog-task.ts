@@ -34,6 +34,64 @@ function isSuccessfulPage(outcome: PageOutcome): outcome is PageResult {
   return 'courses' in outcome;
 }
 
+/** Shape of a single record inside one of the manifest's referenced result files
+ * (e.g. SUCCEEDED_0.json / FAILED_0.json). This is the DistributedMap's default `NONE`
+ * transformation: workflow metadata plus the child execution's actual output/error as a
+ * JSON-encoded string, not a nested object -- see ResultWriter (Map) in the Step
+ * Functions docs. */
+interface MapRunResultRecord {
+  Output?: string;
+  Error?: string;
+  Cause?: string;
+}
+
+/** Reads and parses one of the manifest's SUCCEEDED/FAILED/PENDING result files. Each is
+ * a plain JSON array (not JSON Lines) of MapRunResultRecord. */
+async function readResultFile(bucket: string, key: string): Promise<MapRunResultRecord[]> {
+  const response = await s3.send(new GetObjectCommand({ Bucket: bucket, Key: key }));
+  if (!response.Body) return [];
+  const text = await response.Body.transformToString();
+  return JSON.parse(text) as MapRunResultRecord[];
+}
+
+/** Reads a Distributed Map's exported result set given its manifest.json location.
+ *
+ * manifest.json itself is a JSON object -- not JSON Lines -- of the form
+ * `{ DestinationBucket, ResultFiles: { SUCCEEDED: [{Key, Size}], FAILED: [...], PENDING: [...] } }`.
+ * The actual per-page results live in the files it references, each a JSON array whose
+ * entries carry the child execution's output as a JSON-encoded *string* in `Output`
+ * (successes) rather than the result object itself, so that string needs a second parse.
+ * Failed/pending entries have no usable `Output` and become `{ failed: true }`. */
+async function readManifest(bucket: string, key: string): Promise<PageOutcome[]> {
+  const response = await s3.send(new GetObjectCommand({ Bucket: bucket, Key: key }));
+  if (!response.Body) throw new Error('Empty S3 result manifest');
+  const manifestText = await response.Body.transformToString();
+  const manifest = JSON.parse(manifestText) as {
+    DestinationBucket?: string;
+    ResultFiles?: { SUCCEEDED?: { Key: string }[]; FAILED?: { Key: string }[]; PENDING?: { Key: string }[] };
+  };
+  const destinationBucket = manifest.DestinationBucket ?? bucket;
+  const resultFiles = manifest.ResultFiles ?? {};
+
+  const succeededFiles = resultFiles.SUCCEEDED ?? [];
+  const failedFiles = [...(resultFiles.FAILED ?? []), ...(resultFiles.PENDING ?? [])];
+
+  const succeededRecords = (await Promise.all(succeededFiles.map((file) => readResultFile(destinationBucket, file.Key)))).flat();
+  const failedRecords = (await Promise.all(failedFiles.map((file) => readResultFile(destinationBucket, file.Key)))).flat();
+
+  const succeededOutcomes: PageOutcome[] = succeededRecords.map((record) => {
+    if (!record.Output) return { failed: true };
+    try {
+      return JSON.parse(record.Output) as PageResult;
+    } catch {
+      return { failed: true };
+    }
+  });
+  const failedOutcomes: PageOutcome[] = failedRecords.map(() => ({ failed: true }));
+
+  return [...succeededOutcomes, ...failedOutcomes];
+}
+
 /** Drops courses with no usable content and deduplicates the rest by course code.
  *
  * BDA occasionally emits a course-shaped object with every field blank after
@@ -74,23 +132,9 @@ export const handler = async (input: FinalizeCatalogInput): Promise<{ jobId: str
   const { jobId, catalogId: pinnedCatalogId, pageResults } = input;
   
   // If pageResults has ResultWriterDetails, it's from DistributedMap - read from S3
-  let outcomes: PageOutcome[];
-  if ('ResultWriterDetails' in pageResults) {
-    const { Bucket, Key } = pageResults.ResultWriterDetails;
-    const response = await s3.send(new GetObjectCommand({ Bucket, Key }));
-    if (!response.Body) throw new Error('Empty S3 result manifest');
-    const manifestText = await response.Body.transformToString();
-    const manifest = JSON.parse(manifestText);
-    
-    // Manifest is a JSON Lines file where each line has: {"Input": {...}, "Output": <PageResult>, "ResultWriterDetails": {...}}
-    outcomes = manifestText.trim().split('\n').map((line) => {
-      const entry = JSON.parse(line);
-      return entry.Output ?? { failed: true };
-    });
-  } else {
-    // Inline array from regular Map state
-    outcomes = pageResults;
-  }
+  const outcomes: PageOutcome[] = 'ResultWriterDetails' in pageResults
+    ? await readManifest(pageResults.ResultWriterDetails.Bucket, pageResults.ResultWriterDetails.Key)
+    : pageResults; // Inline array from regular Map state
   
   const succeeded = outcomes.filter(isSuccessfulPage);
   const anyFailed = succeeded.length < outcomes.length;

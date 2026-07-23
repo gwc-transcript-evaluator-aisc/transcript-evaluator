@@ -246,12 +246,25 @@ export class CourseCatalogApiStack extends Stack {
     // let it fail the whole job: fall back to null so finalize still runs and produces a
     // best-effort catalog from whichever pages succeeded (mirrors the previous design's
     // "some pages failed" partial-success behavior).
+    // BDA's concurrent-jobs quota is account-level (currently 25) and shared across every
+    // page's InvokeDataAutomationAsync call fired by the Map below. A page that gets
+    // rejected with ServiceQuotaExceededException because the quota was briefly exceeded
+    // is a transient condition, not a real per-page failure -- retry it with backoff
+    // before falling back to the permanent-failure Catch.
+    invokePageStep.addRetry({
+      errors: ['ServiceQuotaExceededException'],
+      interval: Duration.seconds(10),
+      maxAttempts: 6,
+      backoffRate: 2,
+    });
     invokePageStep.addCatch(new sfn.Pass(this, 'PageFailed', { result: sfn.Result.fromObject({ failed: true }) }), { resultPath: sfn.JsonPath.DISCARD });
 
     const processPagesStep = new sfn.DistributedMap(this, 'ProcessPages', {
       itemsPath: '$.split.pages',
       itemSelector: { jobId: sfn.JsonPath.stringAt('$.jobId'), pageNumber: sfn.JsonPath.stringAt('$$.Map.Item.Value.pageNumber'), pageKey: sfn.JsonPath.stringAt('$$.Map.Item.Value.pageKey') },
-      maxConcurrency: 50,
+      // Kept below BDA's account-level concurrent-jobs quota (25) so pages don't get
+      // rejected with ServiceQuotaExceededException out of the gate on large documents.
+      maxConcurrency: 20,
       resultPath: '$.pageResults',
       resultWriter: new sfn.ResultWriter({
         bucket: inputBucket,
