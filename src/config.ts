@@ -5,6 +5,7 @@ export const config = {
   blueprintArn: process.env.BDA_BLUEPRINT_ARN ?? '',
   projectArn: process.env.BDA_PROJECT_ARN ?? '',
   profileArn: process.env.BDA_PROFILE_ARN ?? '',
+  stateMachineArn: process.env.STATE_MACHINE_ARN ?? '',
   maxUploadBytes: Number(process.env.MAX_UPLOAD_BYTES ?? 52_428_800),
   uploadUrlTtlSeconds: 900,
 };

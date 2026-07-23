@@ -39,26 +39,18 @@ export type CourseCatalog = z.infer<typeof CourseCatalogSchema>;
 export const JobStatusSchema = z.enum(['UPLOADING', 'QUEUED', 'PROCESSING', 'SUCCEEDED', 'FAILED']);
 export type JobStatus = z.infer<typeof JobStatusSchema>;
 
-export const PageStatusSchema = z.enum(['PROCESSING', 'SUCCEEDED', 'FAILED']);
-export type PageStatus = z.infer<typeof PageStatusSchema>;
-
-export interface JobPage {
-  pageNumber: number;
-  invocationArn: string;
-  status: PageStatus;
-  errorMessage?: string;
-}
-
 export interface JobRecord {
   jobId: string;
   status: JobStatus;
   inputKey: string;
   createdAt: string;
   updatedAt: string;
-  /** One BDA invocation per page of the uploaded PDF; extraction runs per-page to avoid
-   * the multi-course enumeration cap BDA's blueprint hits on long documents. */
-  pages?: JobPage[];
-  totalPages?: number;
+  /** ARN of the Step Functions execution processing this job, set once complete-job.ts
+   * starts it. status.ts reads the execution's status directly (DescribeExecution)
+   * rather than polling BDA -- the state machine itself advances purely from BDA's
+   * EventBridge completion events (see bda-event-callback.ts), so there is no polling
+   * anywhere in this pipeline. */
+  executionArn?: string;
   /** Caller-supplied school + academic year, when known up front (e.g. the caller is
    * asking "does school X's Y catalog exist" and triggering extraction for that exact
    * key). Pinning this avoids relying solely on whatever institution/year BDA happens to
@@ -127,4 +119,18 @@ export interface CatalogMetadataRecord {
   jobId: string;
   errorMessage?: string;
   updatedAt: string;
+}
+
+/** Correlates a BDA invocation back to the Step Functions task token that's waiting on
+ * it. Keyed by BDA's own job_id, which is the same UUID as the invocation ARN's suffix
+ * (confirmed against real InvokeDataAutomationAsync + EventBridge event payloads) and is
+ * the only stable identifier present in the EventBridge completion event -- the event
+ * carries no application-level correlation id of our own, so this table is what lets the
+ * EventBridge-triggered callback Lambda find the right waiting task token. */
+export interface PageTaskToken {
+  invocationJobId: string;
+  taskToken: string;
+  jobId: string;
+  pageNumber: number;
+  expiresAt: number;
 }

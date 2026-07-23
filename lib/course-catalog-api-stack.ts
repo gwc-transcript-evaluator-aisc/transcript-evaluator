@@ -1,16 +1,20 @@
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as fs from 'node:fs';
-import { CfnOutput, Duration, RemovalPolicy, Stack, type StackProps } from 'aws-cdk-lib';
+import { ArnFormat, CfnOutput, Duration, RemovalPolicy, Stack, type StackProps } from 'aws-cdk-lib';
 import * as apigwv2 from 'aws-cdk-lib/aws-apigatewayv2';
 import * as integrations from 'aws-cdk-lib/aws-apigatewayv2-integrations';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
+import * as events from 'aws-cdk-lib/aws-events';
+import * as eventsTargets from 'aws-cdk-lib/aws-events-targets';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as nodejs from 'aws-cdk-lib/aws-lambda-nodejs';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as bedrock from 'aws-cdk-lib/aws-bedrock';
 import * as s3deploy from 'aws-cdk-lib/aws-s3-deployment';
+import * as sfn from 'aws-cdk-lib/aws-stepfunctions';
+import * as sfnTasks from 'aws-cdk-lib/aws-stepfunctions-tasks';
 import { Construct } from 'constructs';
 
 const currentFile = fileURLToPath(import.meta.url);
@@ -106,13 +110,13 @@ export class CourseCatalogApiStack extends Stack {
       encryption: dynamodb.TableEncryption.AWS_MANAGED,
     });
 
-    // Interim per-page extraction results while a job is still processing. The final
-    // catalogId isn't known until all pages resolve (it's derived from extracted
-    // institution/academic year), so pages land here first and get merged into Courses
-    // once the whole job completes. TTL cleans these up automatically.
-    const pageExtractions = new dynamodb.Table(this, 'PageExtractions', {
-      partitionKey: { name: 'jobId', type: dynamodb.AttributeType.STRING },
-      sortKey: { name: 'pageNumber', type: dynamodb.AttributeType.NUMBER },
+    // Correlates a BDA invocation (keyed by its own job_id, which the EventBridge
+    // completion event carries) back to the Step Functions task token that's paused
+    // waiting on it. This is what lets the state machine advance purely from BDA's
+    // EventBridge notification instead of polling GetDataAutomationStatus. TTL is a
+    // safety net; the callback deletes entries as soon as they're used.
+    const taskTokens = new dynamodb.Table(this, 'TaskTokens', {
+      partitionKey: { name: 'invocationJobId', type: dynamodb.AttributeType.STRING },
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
       encryption: dynamodb.TableEncryption.AWS_MANAGED,
       timeToLiveAttribute: 'expiresAt',
@@ -123,7 +127,7 @@ export class CourseCatalogApiStack extends Stack {
       OUTPUT_BUCKET_NAME: outputBucket.bucketName,
       JOBS_TABLE_NAME: jobs.tableName,
       CATALOG_TABLE_NAME: catalog.tableName,
-      PAGE_EXTRACTIONS_TABLE_NAME: pageExtractions.tableName,
+      TASK_TOKENS_TABLE_NAME: taskTokens.tableName,
       BDA_PROJECT_ARN: project.attrProjectArn,
       BDA_PROFILE_ARN: `arn:aws:bedrock:${this.region}:${this.account}:data-automation-profile/us.data-automation-v1`,
       MAX_UPLOAD_BYTES: '52428800',
@@ -144,6 +148,7 @@ export class CourseCatalogApiStack extends Stack {
           '@aws-sdk/client-bedrock-data-automation-runtime',
           '@aws-sdk/client-dynamodb',
           '@aws-sdk/client-s3',
+          '@aws-sdk/client-sfn',
           '@aws-sdk/lib-dynamodb',
           '@aws-sdk/s3-request-presigner',
           'pdf-lib',
@@ -152,38 +157,157 @@ export class CourseCatalogApiStack extends Stack {
     });
 
     const createJob = handler('CreateJob', 'create-job.ts');
-    // Splits the uploaded PDF into pages and invokes BDA once per page; needs more time
-    // and memory than the other handlers to hold the PDF and fan out invocations.
-    const completeJob = handler('CompleteJob', 'complete-job.ts', { memorySize: 1024, timeout: Duration.minutes(5) });
-    // Polls potentially hundreds of per-page BDA invocations and merges results on completion.
-    const status = handler('Status', 'status.ts', { memorySize: 512, timeout: Duration.minutes(2) });
     // Point-lookup endpoints (exact existence check / exact course lookup).
     const catalogStatus = handler('CatalogStatus', 'catalog-status.ts');
     const courseLookup = handler('CourseLookup', 'course-lookup.ts');
     // Browse-the-database endpoints (list all catalogs / list a catalog's courses).
     const catalogsList = handler('CatalogsList', 'catalogs.ts');
     const catalogCourses = handler('CatalogCourses', 'catalog-courses.ts');
+    // Reads execution status for the job's status endpoint (thin read, no orchestration).
+    const status = handler('Status', 'status.ts');
+
+    // Step Functions task Lambdas. These replace the old complete-job.ts /
+    // status.ts polling loop with an event-driven pipeline: split -> (invoke each page &
+    // wait for BDA's EventBridge event, no polling) -> finalize.
+    const tasksHandler = (id: string, entry: string, overrides: { memorySize?: number; timeout?: Duration } = {}) => new nodejs.NodejsFunction(this, id, {
+      entry: path.join(currentDirectory, '..', 'src', 'tasks', entry),
+      handler: 'handler',
+      runtime: lambda.Runtime.NODEJS_22_X,
+      memorySize: overrides.memorySize ?? 512,
+      timeout: overrides.timeout ?? Duration.seconds(30),
+      depsLockFilePath: path.join(currentDirectory, '..', 'package-lock.json'),
+      environment: env,
+      bundling: {
+        format: nodejs.OutputFormat.ESM,
+        minify: true,
+        sourceMap: true,
+        nodeModules: [
+          '@aws-sdk/client-bedrock-data-automation-runtime',
+          '@aws-sdk/client-dynamodb',
+          '@aws-sdk/client-s3',
+          '@aws-sdk/client-sfn',
+          '@aws-sdk/lib-dynamodb',
+          'pdf-lib',
+        ],
+      },
+    });
+
+    // Reads the uploaded PDF and splits it into per-page files in S3. Needs more time
+    // and memory than the other tasks to hold the whole PDF in memory.
+    const splitPdfTask = tasksHandler('SplitPdfTask', 'split-pdf-task.ts', { memorySize: 1024, timeout: Duration.minutes(2) });
+    // Starts one page's BDA invocation and records the task token; never polls.
+    const invokePageTask = tasksHandler('InvokePageTask', 'invoke-page-task.ts');
+    // EventBridge target: resolves the task token waiting on a completed/failed invocation.
+    const bdaEventCallback = tasksHandler('BdaEventCallback', 'bda-event-callback.ts', { timeout: Duration.seconds(60) });
+    // Merges every page's results into the final catalog once the whole Map completes.
+    const finalizeCatalogTask = tasksHandler('FinalizeCatalogTask', 'finalize-catalog-task.ts');
 
     inputBucket.grantPut(createJob);
-    inputBucket.grantReadWrite(completeJob);
-    outputBucket.grantReadWrite(completeJob);
-    outputBucket.grantRead(status);
+    inputBucket.grantReadWrite(splitPdfTask);
+    inputBucket.grantRead(invokePageTask);
+    inputBucket.grantRead(finalizeCatalogTask); // Read Step Functions DistributedMap results
+    outputBucket.grantReadWrite(invokePageTask);
+    outputBucket.grantRead(bdaEventCallback);
     jobs.grantReadWriteData(createJob);
-    jobs.grantReadWriteData(completeJob);
-    jobs.grantReadWriteData(status);
-    catalog.grantWriteData(completeJob);
-    catalog.grantReadWriteData(status);
+    jobs.grantWriteData(finalizeCatalogTask);
+    jobs.grantReadData(status);
+    catalog.grantWriteData(finalizeCatalogTask);
     catalog.grantReadData(catalogStatus);
     catalog.grantReadData(courseLookup);
     catalog.grantReadData(catalogsList);
     catalog.grantReadData(catalogCourses);
-    pageExtractions.grantReadWriteData(status);
-    completeJob.addToRolePolicy(new iam.PolicyStatement({ actions: ['bedrock:InvokeDataAutomationAsync'], resources: ['*'] }));
-    status.addToRolePolicy(new iam.PolicyStatement({ actions: ['bedrock:GetDataAutomationStatus'], resources: ['*'] }));
+    taskTokens.grantWriteData(invokePageTask);
+    taskTokens.grantReadWriteData(bdaEventCallback);
+    invokePageTask.addToRolePolicy(new iam.PolicyStatement({ actions: ['bedrock:InvokeDataAutomationAsync'], resources: ['*'] }));
+    bdaEventCallback.addToRolePolicy(new iam.PolicyStatement({ actions: ['states:SendTaskSuccess', 'states:SendTaskFailure'], resources: ['*'] }));
+
+    // --- State machine: SplitPdf -> Map(InvokePage, wait for BDA's EventBridge event) -> FinalizeCatalog ---
+    const splitPdfStep = new sfnTasks.LambdaInvoke(this, 'SplitPdf', {
+      lambdaFunction: splitPdfTask,
+      payload: sfn.TaskInput.fromObject({ jobId: sfn.JsonPath.stringAt('$.jobId'), inputKey: sfn.JsonPath.stringAt('$.inputKey') }),
+      payloadResponseOnly: true,
+      resultPath: '$.split',
+    });
+
+    const invokePageStep = new sfnTasks.LambdaInvoke(this, 'InvokePage', {
+      lambdaFunction: invokePageTask,
+      integrationPattern: sfn.IntegrationPattern.WAIT_FOR_TASK_TOKEN,
+      // $ here is the Map's itemSelector output for this iteration: {jobId, pageNumber, pageKey}.
+      payload: sfn.TaskInput.fromObject({
+        jobId: sfn.JsonPath.stringAt('$.jobId'),
+        pageNumber: sfn.JsonPath.stringAt('$.pageNumber'),
+        pageKey: sfn.JsonPath.stringAt('$.pageKey'),
+        taskToken: sfn.JsonPath.taskToken,
+      }),
+    });
+    // The state's output is normally whatever payload bda-event-callback.ts passed to
+    // SendTaskSuccess (the page's extracted courses) -- no resultPath override, so that
+    // becomes this iteration's result directly. If a page's BDA invocation fails, don't
+    // let it fail the whole job: fall back to null so finalize still runs and produces a
+    // best-effort catalog from whichever pages succeeded (mirrors the previous design's
+    // "some pages failed" partial-success behavior).
+    invokePageStep.addCatch(new sfn.Pass(this, 'PageFailed', { result: sfn.Result.fromObject({ failed: true }) }), { resultPath: sfn.JsonPath.DISCARD });
+
+    const processPagesStep = new sfn.DistributedMap(this, 'ProcessPages', {
+      itemsPath: '$.split.pages',
+      itemSelector: { jobId: sfn.JsonPath.stringAt('$.jobId'), pageNumber: sfn.JsonPath.stringAt('$$.Map.Item.Value.pageNumber'), pageKey: sfn.JsonPath.stringAt('$$.Map.Item.Value.pageKey') },
+      maxConcurrency: 50,
+      resultPath: '$.pageResults',
+      resultWriter: new sfn.ResultWriter({
+        bucket: inputBucket,
+        prefix: 'step-functions-results',
+      }),
+    }).itemProcessor(invokePageStep);
+
+    const finalizeCatalogStep = new sfnTasks.LambdaInvoke(this, 'FinalizeCatalog', {
+      lambdaFunction: finalizeCatalogTask,
+      payload: sfn.TaskInput.fromObject({
+        jobId: sfn.JsonPath.stringAt('$.jobId'),
+        catalogId: sfn.JsonPath.stringAt('$.catalogId'),
+        pageResults: sfn.JsonPath.stringAt('$.pageResults'),
+      }),
+      payloadResponseOnly: true,
+    });
+
+    const stateMachine = new sfn.StateMachine(this, 'CatalogExtractionStateMachine', {
+      definitionBody: sfn.DefinitionBody.fromChainable(splitPdfStep.next(processPagesStep).next(finalizeCatalogStep)),
+      timeout: Duration.hours(2),
+    });
+
+    // The EventBridge rule that replaces polling: whenever BDA finishes any invocation
+    // (this account/region-wide -- BDA doesn't support scoping the event to a specific
+    // project), the callback Lambda looks up whether it's one of ours via the
+    // TaskTokens table and resolves the matching task token if so.
+    const bdaJobStateChangeRule = new events.Rule(this, 'BdaJobStateChangeRule', {
+      eventPattern: {
+        source: ['aws.bedrock'],
+        detailType: [
+          'Bedrock Data Automation Job Succeeded',
+          'Bedrock Data Automation Job Failed With Client Error',
+          'Bedrock Data Automation Job Failed With Service Error',
+        ],
+      },
+    });
+    bdaJobStateChangeRule.addTarget(new eventsTargets.LambdaFunction(bdaEventCallback));
 
     const api = new apigwv2.HttpApi(this, 'Api', {
       corsPreflight: { allowOrigins: ['*'], allowMethods: [apigwv2.CorsHttpMethod.GET, apigwv2.CorsHttpMethod.POST, apigwv2.CorsHttpMethod.OPTIONS], allowHeaders: ['content-type'] },
     });
+    const completeJob = handler('CompleteJob', 'complete-job.ts');
+    inputBucket.grantRead(completeJob);
+    jobs.grantReadWriteData(completeJob);
+    catalog.grantWriteData(completeJob);
+    stateMachine.grantStartExecution(completeJob);
+    completeJob.addEnvironment('STATE_MACHINE_ARN', stateMachine.stateMachineArn);
+    // Executions of a state machine live under a separate `execution:` ARN namespace
+    // (not a suffix of the stateMachine: ARN), so this has to be built explicitly rather
+    // than string-munging stateMachineArn -- CDK's ARN is a deploy-time token, and a
+    // naive .replace() on it silently no-ops instead of throwing.
+    status.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['states:DescribeExecution'],
+      resources: [this.formatArn({ service: 'states', resource: 'execution', resourceName: `${stateMachine.stateMachineName}:*`, arnFormat: ArnFormat.COLON_RESOURCE_NAME })],
+    }));
+
     api.addRoutes({ path: '/jobs', methods: [apigwv2.HttpMethod.POST], integration: new integrations.HttpLambdaIntegration('CreateJobIntegration', createJob) });
     api.addRoutes({ path: '/jobs/{jobId}/complete', methods: [apigwv2.HttpMethod.POST], integration: new integrations.HttpLambdaIntegration('CompleteJobIntegration', completeJob) });
     api.addRoutes({ path: '/jobs/{jobId}', methods: [apigwv2.HttpMethod.GET], integration: new integrations.HttpLambdaIntegration('StatusIntegration', status) });

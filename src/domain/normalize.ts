@@ -1,4 +1,4 @@
-import { GetObjectCommand } from '@aws-sdk/client-s3';
+import { GetObjectCommand, ListObjectsV2Command } from '@aws-sdk/client-s3';
 import { s3 } from '../aws/clients.js';
 import { CourseCatalogSchema, type Course, type CourseCatalog } from './course.js';
 
@@ -120,39 +120,37 @@ async function getJsonObject(bucket: string, key: string): Promise<unknown> {
   return body ? JSON.parse(body) : undefined;
 }
 
-/** Reads a single page's BDA custom-output JSON from S3 and returns its normalized,
- * schema-validated catalog (institution/title/year plus that page's courses). BDA's
- * GetDataAutomationStatus returns `outputConfiguration.s3Uri` pointing at that
- * invocation's job_metadata.json (a specific file, not a listable prefix), which in turn
- * points at the actual per-segment custom_output path -- so we follow that indirection
- * rather than trying to derive the output path ourselves. */
-export async function extractPageCourses(jobMetadataS3Uri: string | undefined): Promise<CourseCatalog> {
+function mergeCatalogs(catalogs: CourseCatalog[]): CourseCatalog {
   const empty: CourseCatalog = { courses: [] };
-  if (!jobMetadataS3Uri) return empty;
-  const { bucket, key } = parseBucketAndKey(jobMetadataS3Uri);
-  const metadata = await getJsonObject(bucket, key) as {
-    output_metadata?: Array<{ segment_metadata?: Array<{ custom_output_path?: string; custom_output_status?: string }> }>;
-  } | undefined;
-  const segments = metadata?.output_metadata?.flatMap((asset) => asset.segment_metadata ?? []) ?? [];
-  const outputPaths = segments
-    .filter((segment) => segment.custom_output_status !== 'NO_MATCH')
-    .map((segment) => segment.custom_output_path)
-    .filter((path): path is string => Boolean(path));
-  if (outputPaths.length === 0) return empty;
+  if (catalogs.length === 0) return empty;
+  return {
+    institution: catalogs.find((catalog) => catalog.institution)?.institution,
+    catalogTitle: catalogs.find((catalog) => catalog.catalogTitle)?.catalogTitle,
+    catalogAcademicYear: catalogs.find((catalog) => catalog.catalogAcademicYear)?.catalogAcademicYear,
+    courses: catalogs.flatMap((catalog) => catalog.courses),
+  };
+}
 
-  const catalogs = await Promise.all(outputPaths.map(async (path) => {
-    const { bucket: outputBucket, key: outputKey } = parseBucketAndKey(path);
-    const raw = await getJsonObject(outputBucket, outputKey);
+/** Reads a page's BDA custom-output JSON given the `output_s3_location` from a BDA
+ * EventBridge completion event ({s3_bucket, name}). Unlike GetDataAutomationStatus's
+ * `outputConfiguration.s3Uri` (which points at a specific job_metadata.json file), the
+ * EventBridge event's output_s3_location.name is a genuine directory prefix (confirmed
+ * against a real event payload: it points one level up from job_metadata.json, at the
+ * asset folder), so this lists objects under it directly rather than following the
+ * job_metadata.json indirection. */
+export async function extractPageCoursesFromEventLocation(location: { bucket: string; name: string } | undefined): Promise<CourseCatalog> {
+  if (!location) return { courses: [] };
+  const prefix = location.name.endsWith('/') ? location.name : `${location.name}/`;
+  const listing = await s3.send(new ListObjectsV2Command({ Bucket: location.bucket, Prefix: prefix }));
+  const outputKeys = (listing.Contents ?? [])
+    .map((item) => item.Key)
+    .filter((itemKey): itemKey is string => Boolean(itemKey?.includes('custom_output') && itemKey.endsWith('.json')));
+  if (outputKeys.length === 0) return { courses: [] };
+
+  const catalogs = await Promise.all(outputKeys.map(async (outputKey) => {
+    const raw = await getJsonObject(location.bucket, outputKey);
     if (raw === undefined) return undefined;
     return normalizeCatalog(raw, outputKey).catalog;
   }));
-
-  const valid = catalogs.filter((catalog): catalog is CourseCatalog => Boolean(catalog));
-  if (valid.length === 0) return empty;
-  return {
-    institution: valid.find((catalog) => catalog.institution)?.institution,
-    catalogTitle: valid.find((catalog) => catalog.catalogTitle)?.catalogTitle,
-    catalogAcademicYear: valid.find((catalog) => catalog.catalogAcademicYear)?.catalogAcademicYear,
-    courses: valid.flatMap((catalog) => catalog.courses),
-  };
+  return mergeCatalogs(catalogs.filter((catalog): catalog is CourseCatalog => Boolean(catalog)));
 }
