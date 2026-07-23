@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Course Catalog Database</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="shell">
+    <header class="hero">
+      <p class="eyebrow">Course articulation workspace</p>
+      <h1>Course catalog database</h1>
+      <p class="lede">Upload a catalog PDF for extraction, look up an exact course, or browse everything that's already been extracted.</p>
+    </header>
+
+    <nav class="tabs" id="tabs">
+      <button class="tab-button active" data-view="browse" type="button">Browse database</button>
+      <button class="tab-button" data-view="lookup" type="button">Look up a course</button>
+      <button class="tab-button" data-view="upload" type="button">Upload a catalog</button>
+    </nav>
+
+    <section class="panel" id="view-upload" hidden>
+      <h2>Upload a catalog</h2>
+      <form id="upload-target-form" class="lookup-form">
+        <label>School
+          <input id="upload-institution" type="text" placeholder="e.g. South Puget Sound Community College" required>
+        </label>
+        <label>Catalog year
+          <input id="upload-year" type="text" placeholder="e.g. 2025-2026" required>
+        </label>
+      </form>
+      <label class="dropzone" id="dropzone" for="catalog-file">
+        <input id="catalog-file" type="file" accept="application/pdf,.pdf">
+        <span class="drop-icon">PDF</span>
+        <span><strong>Choose a PDF</strong> or drop it here</span>
+        <small>Every page is processed and extracted individually, so large catalogs are supported.</small>
+      </label>
+      <div class="file-row" id="file-row" hidden>
+        <span id="file-name"></span>
+        <button class="text-button" id="clear-file" type="button">Remove</button>
+      </div>
+      <button class="primary-button" id="start-button" type="button" disabled>Start extraction</button>
+      <p class="hint">This prototype does not require an account. Do not upload sensitive documents.</p>
+    </section>
+
+    <section class="panel status-panel" id="status-panel" aria-live="polite" hidden>
+      <div class="status-heading"><span class="status-dot" id="status-dot"></span><div><h2 id="status-title">Preparing upload</h2><p id="status-detail"></p></div></div>
+      <div class="progress-track"><div class="progress-bar" id="progress-bar"></div></div>
+    </section>
+
+    <section class="panel" id="view-lookup" hidden>
+      <h2>Look up an exact course</h2>
+      <form id="lookup-form" class="lookup-form">
+        <label>School
+          <input id="lookup-institution" type="text" placeholder="e.g. South Puget Sound Community College" required>
+        </label>
+        <label>Catalog year
+          <input id="lookup-year" type="text" placeholder="e.g. 2025-2026" required>
+        </label>
+        <label>Course code
+          <input id="lookup-course" type="text" placeholder="e.g. ACCT 206" required>
+        </label>
+        <button class="primary-button" type="submit">Look up</button>
+      </form>
+      <div id="lookup-result"></div>
+    </section>
+
+    <section class="panel" id="view-browse">
+      <div class="results-heading">
+        <div><p class="eyebrow">Database</p><h2 id="browse-heading">Catalogs</h2></div>
+        <button class="secondary-button" id="refresh-catalogs" type="button">Refresh</button>
+      </div>
+
+      <div id="catalog-list-view">
+        <table class="db-table" id="catalog-table">
+          <thead><tr><th>Institution</th><th>Academic year</th><th>Status</th><th>Courses</th><th>Updated</th></tr></thead>
+          <tbody id="catalog-rows"></tbody>
+        </table>
+        <p class="hint" id="catalog-empty" hidden>No catalogs have been requested yet. Upload a PDF to get started.</p>
+      </div>
+
+      <div id="course-list-view" hidden>
+        <button class="text-button" id="back-to-catalogs" type="button">&larr; Back to catalogs</button>
+        <table class="db-table" id="course-table">
+          <thead><tr><th>Code</th><th>Title</th><th>Department</th><th>Credits</th><th>Description</th></tr></thead>
+          <tbody id="course-rows"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <p class="error" id="error" role="alert" hidden></p>
+  </main>
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

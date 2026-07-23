@@ -1,0 +1,39 @@
+{
+  "class": "Academic Course Catalog",
+  "description": "Extract articulation-relevant course information from a school course catalog. Extract every course and its description when present. Do not extract prerequisites.",
+  "definitions": {
+    "Course": {
+      "properties": {
+        "department": { "type": "string", "inferenceType": "explicit", "instruction": "The academic department or subject area for the course, if listed." },
+        "course_code": { "type": "string", "inferenceType": "explicit", "instruction": "The course code or number exactly as listed." },
+        "course_title": { "type": "string", "inferenceType": "explicit", "instruction": "The official course title exactly as listed." },
+        "course_level": { "type": "string", "inferenceType": "inferred", "instruction": "The course level, such as introductory, intermediate, advanced, undergraduate, or graduate, when supported by the catalog." },
+        "description": { "type": "string", "inferenceType": "explicit", "instruction": "The complete official course description. Preserve the catalog wording and omit prerequisites." },
+        "credits": { "type": "number", "inferenceType": "explicit", "instruction": "The number of credits or credit hours awarded for the course." },
+        "contact_hours": { "type": "number", "inferenceType": "explicit", "instruction": "The total instructional or contact hours, if stated." },
+        "lecture_hours": { "type": "number", "inferenceType": "explicit", "instruction": "The lecture hours, if separately stated." },
+        "lab_hours": { "type": "number", "inferenceType": "explicit", "instruction": "The laboratory hours, if separately stated." },
+        "studio_hours": { "type": "number", "inferenceType": "explicit", "instruction": "The studio hours, if separately stated." },
+        "delivery_mode": { "type": "string", "inferenceType": "explicit", "instruction": "The delivery mode, such as in-person, online, hybrid, lecture, laboratory, or studio, if stated." },
+        "duration": { "type": "string", "inferenceType": "explicit", "instruction": "The course duration, term length, meeting period, or sequence information, if stated." },
+        "learning_outcomes": { "type": "string", "inferenceType": "explicit", "instruction": "The stated learning outcomes, objectives, or goals, if present. List each one separated by a semicolon." },
+        "topics": { "type": "string", "inferenceType": "explicit", "instruction": "The major topics, units, concepts, or subject areas covered, if present. List each one separated by a semicolon." },
+        "competencies": { "type": "string", "inferenceType": "explicit", "instruction": "The skills or competencies students are expected to develop, if present. List each one separated by a semicolon." },
+        "assignments": { "type": "string", "inferenceType": "explicit", "instruction": "The named assignments, projects, or major student work, if present. List each one separated by a semicolon." },
+        "assessment_methods": { "type": "string", "inferenceType": "explicit", "instruction": "The grading, assessment, or evaluation methods, if present. List each one separated by a semicolon." },
+        "required_materials": { "type": "string", "inferenceType": "explicit", "instruction": "Required textbooks, readings, software, equipment, or other materials, if present. List each one separated by a semicolon." },
+        "transfer_notes": { "type": "string", "inferenceType": "explicit", "instruction": "Transfer, articulation, equivalency, or comparable-course notes explicitly stated, if present. List each one separated by a semicolon." }
+      }
+    }
+  },
+  "properties": {
+    "institution": { "type": "string", "inferenceType": "explicit", "instruction": "The name of the school or institution publishing this catalog." },
+    "catalog_title": { "type": "string", "inferenceType": "explicit", "instruction": "The title of the catalog or course catalog document, if stated." },
+    "catalog_academic_year": { "type": "string", "inferenceType": "explicit", "instruction": "The academic year, term, or catalog period stated in the document." },
+    "courses": {
+      "type": "array",
+      "instruction": "Every individual course listed anywhere in the catalog, extracted separately. A catalog typically lists many courses; extract each one as its own entry rather than summarizing or picking a single course.",
+      "items": { "$ref": "#/definitions/Course" }
+    }
+  }
+}

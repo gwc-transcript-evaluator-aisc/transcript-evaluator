@@ -1,0 +1,33 @@
+# Dependencies
+node_modules/
+
+# CDK
+cdk.out/
+.cdk.staging/
+
+# Build output
+dist/
+build/
+*.tsbuildinfo
+
+# Env / secrets
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+npm-debug.log*
+
+# Test / coverage
+coverage/
+.vitest/
+
+# Editor / OS
+.DS_Store
+.vscode/
+.idea/
+*.swp
+
+# Scratch (local testing artifacts from manual smoke tests)
+.scratch/
