@@ -1,0 +1,379 @@
+{
+  "pbtResults": {},
+  "executionHistory": {
+    "1. Scaffold the articulation-orchestrator package and infrastructure": [
+      {
+        "executionId": "2df8f281-0a00-4475-b28a-d1a0b9dc5204",
+        "chatSessionId": "sess_199c821c-0ecd-4d33-94c3-c0b8345bfff0",
+        "timestamp": 1784868638870
+      },
+      {
+        "executionId": "2df8f281-0a00-4475-b28a-d1a0b9dc5204",
+        "chatSessionId": "sess_199c821c-0ecd-4d33-94c3-c0b8345bfff0",
+        "timestamp": 1784868645353
+      },
+      {
+        "executionId": "da6b3333-911f-4744-94b6-8595af5b6107",
+        "chatSessionId": "sess_2798f495-88a4-47fd-a5c9-1d887ec3d093",
+        "timestamp": 1784868972069
+      },
+      {
+        "executionId": "4400bdc5-fa7c-4435-bd78-6bb42e2f18f5",
+        "chatSessionId": "sess_88b04358-47f2-4b3a-bd97-44772a161b9e",
+        "timestamp": 1784869013169
+      },
+      {
+        "executionId": "4400bdc5-fa7c-4435-bd78-6bb42e2f18f5",
+        "chatSessionId": "sess_88b04358-47f2-4b3a-bd97-44772a161b9e",
+        "timestamp": 1784869017792
+      },
+      {
+        "executionId": "4400bdc5-fa7c-4435-bd78-6bb42e2f18f5",
+        "chatSessionId": "sess_88b04358-47f2-4b3a-bd97-44772a161b9e",
+        "timestamp": 1784869193159
+      }
+    ],
+    "2. Implement core schemas and static Degree Program registry": [
+      {
+        "executionId": "2df8f281-0a00-4475-b28a-d1a0b9dc5204",
+        "chatSessionId": "sess_199c821c-0ecd-4d33-94c3-c0b8345bfff0",
+        "timestamp": 1784868638908
+      },
+      {
+        "executionId": "4400bdc5-fa7c-4435-bd78-6bb42e2f18f5",
+        "chatSessionId": "sess_88b04358-47f2-4b3a-bd97-44772a161b9e",
+        "timestamp": 1784869013198
+      },
+      {
+        "executionId": "4400bdc5-fa7c-4435-bd78-6bb42e2f18f5",
+        "chatSessionId": "sess_88b04358-47f2-4b3a-bd97-44772a161b9e",
+        "timestamp": 1784869198805
+      },
+      {
+        "executionId": "4400bdc5-fa7c-4435-bd78-6bb42e2f18f5",
+        "chatSessionId": "sess_88b04358-47f2-4b3a-bd97-44772a161b9e",
+        "timestamp": 1784869277641
+      }
+    ],
+    "3. Implement the Transcript_API boundary and normalization": [
+      {
+        "executionId": "2df8f281-0a00-4475-b28a-d1a0b9dc5204",
+        "chatSessionId": "sess_199c821c-0ecd-4d33-94c3-c0b8345bfff0",
+        "timestamp": 1784868638933
+      },
+      {
+        "executionId": "4400bdc5-fa7c-4435-bd78-6bb42e2f18f5",
+        "chatSessionId": "sess_88b04358-47f2-4b3a-bd97-44772a161b9e",
+        "timestamp": 1784869013222
+      },
+      {
+        "executionId": "4400bdc5-fa7c-4435-bd78-6bb42e2f18f5",
+        "chatSessionId": "sess_88b04358-47f2-4b3a-bd97-44772a161b9e",
+        "timestamp": 1784869282895
+      },
+      {
+        "executionId": "4400bdc5-fa7c-4435-bd78-6bb42e2f18f5",
+        "chatSessionId": "sess_88b04358-47f2-4b3a-bd97-44772a161b9e",
+        "timestamp": 1784869377941
+      }
+    ],
+    "4. Implement run persistence and idempotent create/status APIs": [
+      {
+        "executionId": "2df8f281-0a00-4475-b28a-d1a0b9dc5204",
+        "chatSessionId": "sess_199c821c-0ecd-4d33-94c3-c0b8345bfff0",
+        "timestamp": 1784868638959
+      },
+      {
+        "executionId": "4400bdc5-fa7c-4435-bd78-6bb42e2f18f5",
+        "chatSessionId": "sess_88b04358-47f2-4b3a-bd97-44772a161b9e",
+        "timestamp": 1784869013248
+      },
+      {
+        "executionId": "4400bdc5-fa7c-4435-bd78-6bb42e2f18f5",
+        "chatSessionId": "sess_88b04358-47f2-4b3a-bd97-44772a161b9e",
+        "timestamp": 1784869383064
+      }
+    ],
+    "5. Implement Catalog cache and key resolution": [
+      {
+        "executionId": "2df8f281-0a00-4475-b28a-d1a0b9dc5204",
+        "chatSessionId": "sess_199c821c-0ecd-4d33-94c3-c0b8345bfff0",
+        "timestamp": 1784868638990
+      },
+      {
+        "executionId": "4400bdc5-fa7c-4435-bd78-6bb42e2f18f5",
+        "chatSessionId": "sess_88b04358-47f2-4b3a-bd97-44772a161b9e",
+        "timestamp": 1784869013275
+      },
+      {
+        "executionId": "82740433-76cc-4ff3-ac37-12ece3fafceb",
+        "chatSessionId": "sess_88b04358-47f2-4b3a-bd97-44772a161b9e",
+        "timestamp": 1784869723543
+      },
+      {
+        "executionId": "82740433-76cc-4ff3-ac37-12ece3fafceb",
+        "chatSessionId": "sess_88b04358-47f2-4b3a-bd97-44772a161b9e",
+        "timestamp": 1784869824932
+      }
+    ],
+    "6. Implement run preparation and Work-table storage": [
+      {
+        "executionId": "2df8f281-0a00-4475-b28a-d1a0b9dc5204",
+        "chatSessionId": "sess_199c821c-0ecd-4d33-94c3-c0b8345bfff0",
+        "timestamp": 1784868639019
+      },
+      {
+        "executionId": "4400bdc5-fa7c-4435-bd78-6bb42e2f18f5",
+        "chatSessionId": "sess_88b04358-47f2-4b3a-bd97-44772a161b9e",
+        "timestamp": 1784869013293
+      },
+      {
+        "executionId": "82740433-76cc-4ff3-ac37-12ece3fafceb",
+        "chatSessionId": "sess_88b04358-47f2-4b3a-bd97-44772a161b9e",
+        "timestamp": 1784869830747
+      }
+    ],
+    "7. Implement semantic Required_Course matching": [
+      {
+        "executionId": "2df8f281-0a00-4475-b28a-d1a0b9dc5204",
+        "chatSessionId": "sess_199c821c-0ecd-4d33-94c3-c0b8345bfff0",
+        "timestamp": 1784868639045
+      },
+      {
+        "executionId": "4400bdc5-fa7c-4435-bd78-6bb42e2f18f5",
+        "chatSessionId": "sess_88b04358-47f2-4b3a-bd97-44772a161b9e",
+        "timestamp": 1784869013316
+      },
+      {
+        "executionId": "93b08e07-2c6f-48f1-96ca-bd1f49dbdadd",
+        "chatSessionId": "sess_88b04358-47f2-4b3a-bd97-44772a161b9e",
+        "timestamp": 1784870081418
+      },
+      {
+        "executionId": "93b08e07-2c6f-48f1-96ca-bd1f49dbdadd",
+        "chatSessionId": "sess_88b04358-47f2-4b3a-bd97-44772a161b9e",
+        "timestamp": 1784870171602
+      }
+    ],
+    "8. Implement the evaluator client and per-pair worker": [
+      {
+        "executionId": "2df8f281-0a00-4475-b28a-d1a0b9dc5204",
+        "chatSessionId": "sess_199c821c-0ecd-4d33-94c3-c0b8345bfff0",
+        "timestamp": 1784868639075
+      },
+      {
+        "executionId": "4400bdc5-fa7c-4435-bd78-6bb42e2f18f5",
+        "chatSessionId": "sess_88b04358-47f2-4b3a-bd97-44772a161b9e",
+        "timestamp": 1784869013333
+      },
+      {
+        "executionId": "93b08e07-2c6f-48f1-96ca-bd1f49dbdadd",
+        "chatSessionId": "sess_88b04358-47f2-4b3a-bd97-44772a161b9e",
+        "timestamp": 1784870177365
+      },
+      {
+        "executionId": "93b08e07-2c6f-48f1-96ca-bd1f49dbdadd",
+        "chatSessionId": "sess_88b04358-47f2-4b3a-bd97-44772a161b9e",
+        "timestamp": 1784870305460
+      }
+    ],
+    "9. Implement the bounded Step Functions workflow": [
+      {
+        "executionId": "2df8f281-0a00-4475-b28a-d1a0b9dc5204",
+        "chatSessionId": "sess_199c821c-0ecd-4d33-94c3-c0b8345bfff0",
+        "timestamp": 1784868639099
+      },
+      {
+        "executionId": "4400bdc5-fa7c-4435-bd78-6bb42e2f18f5",
+        "chatSessionId": "sess_88b04358-47f2-4b3a-bd97-44772a161b9e",
+        "timestamp": 1784869013361
+      },
+      {
+        "executionId": "93b08e07-2c6f-48f1-96ca-bd1f49dbdadd",
+        "chatSessionId": "sess_88b04358-47f2-4b3a-bd97-44772a161b9e",
+        "timestamp": 1784870311056
+      },
+      {
+        "executionId": "93b08e07-2c6f-48f1-96ca-bd1f49dbdadd",
+        "chatSessionId": "sess_88b04358-47f2-4b3a-bd97-44772a161b9e",
+        "timestamp": 1784870663840
+      }
+    ],
+    "10. Implement idempotent result finalization": [
+      {
+        "executionId": "2df8f281-0a00-4475-b28a-d1a0b9dc5204",
+        "chatSessionId": "sess_199c821c-0ecd-4d33-94c3-c0b8345bfff0",
+        "timestamp": 1784868639128
+      },
+      {
+        "executionId": "4400bdc5-fa7c-4435-bd78-6bb42e2f18f5",
+        "chatSessionId": "sess_88b04358-47f2-4b3a-bd97-44772a161b9e",
+        "timestamp": 1784869013383
+      },
+      {
+        "executionId": "93b08e07-2c6f-48f1-96ca-bd1f49dbdadd",
+        "chatSessionId": "sess_88b04358-47f2-4b3a-bd97-44772a161b9e",
+        "timestamp": 1784870669830
+      },
+      {
+        "executionId": "93b08e07-2c6f-48f1-96ca-bd1f49dbdadd",
+        "chatSessionId": "sess_88b04358-47f2-4b3a-bd97-44772a161b9e",
+        "timestamp": 1784870914760
+      }
+    ],
+    "11. Implement result and student-directory APIs": [
+      {
+        "executionId": "2df8f281-0a00-4475-b28a-d1a0b9dc5204",
+        "chatSessionId": "sess_199c821c-0ecd-4d33-94c3-c0b8345bfff0",
+        "timestamp": 1784868639160
+      },
+      {
+        "executionId": "4400bdc5-fa7c-4435-bd78-6bb42e2f18f5",
+        "chatSessionId": "sess_88b04358-47f2-4b3a-bd97-44772a161b9e",
+        "timestamp": 1784869013400
+      },
+      {
+        "executionId": "e802890a-a8de-4874-ba85-1fd82e9e2515",
+        "chatSessionId": "sess_88b04358-47f2-4b3a-bd97-44772a161b9e",
+        "timestamp": 1784870974224
+      },
+      {
+        "executionId": "e802890a-a8de-4874-ba85-1fd82e9e2515",
+        "chatSessionId": "sess_88b04358-47f2-4b3a-bd97-44772a161b9e",
+        "timestamp": 1784871109481
+      }
+    ],
+    "12. Implement shared safe HTTP error and authorization handling": [
+      {
+        "executionId": "2df8f281-0a00-4475-b28a-d1a0b9dc5204",
+        "chatSessionId": "sess_199c821c-0ecd-4d33-94c3-c0b8345bfff0",
+        "timestamp": 1784868639185
+      },
+      {
+        "executionId": "4400bdc5-fa7c-4435-bd78-6bb42e2f18f5",
+        "chatSessionId": "sess_88b04358-47f2-4b3a-bd97-44772a161b9e",
+        "timestamp": 1784869013426
+      },
+      {
+        "executionId": "e802890a-a8de-4874-ba85-1fd82e9e2515",
+        "chatSessionId": "sess_88b04358-47f2-4b3a-bd97-44772a161b9e",
+        "timestamp": 1784871115981
+      },
+      {
+        "executionId": "e802890a-a8de-4874-ba85-1fd82e9e2515",
+        "chatSessionId": "sess_88b04358-47f2-4b3a-bd97-44772a161b9e",
+        "timestamp": 1784871237587
+      }
+    ],
+    "13. Add typed frontend orchestrator clients and hooks": [
+      {
+        "executionId": "2df8f281-0a00-4475-b28a-d1a0b9dc5204",
+        "chatSessionId": "sess_199c821c-0ecd-4d33-94c3-c0b8345bfff0",
+        "timestamp": 1784868639211
+      },
+      {
+        "executionId": "4400bdc5-fa7c-4435-bd78-6bb42e2f18f5",
+        "chatSessionId": "sess_88b04358-47f2-4b3a-bd97-44772a161b9e",
+        "timestamp": 1784869013457
+      },
+      {
+        "executionId": "8d17a26a-29f8-40ef-b4cf-36be26e270e8",
+        "chatSessionId": "sess_88b04358-47f2-4b3a-bd97-44772a161b9e",
+        "timestamp": 1784871261233
+      },
+      {
+        "executionId": "8d17a26a-29f8-40ef-b4cf-36be26e270e8",
+        "chatSessionId": "sess_88b04358-47f2-4b3a-bd97-44772a161b9e",
+        "timestamp": 1784871360175
+      }
+    ],
+    "14. Implement the dedicated Upload Page": [
+      {
+        "executionId": "2df8f281-0a00-4475-b28a-d1a0b9dc5204",
+        "chatSessionId": "sess_199c821c-0ecd-4d33-94c3-c0b8345bfff0",
+        "timestamp": 1784868639242
+      },
+      {
+        "executionId": "4400bdc5-fa7c-4435-bd78-6bb42e2f18f5",
+        "chatSessionId": "sess_88b04358-47f2-4b3a-bd97-44772a161b9e",
+        "timestamp": 1784869013474
+      },
+      {
+        "executionId": "8d17a26a-29f8-40ef-b4cf-36be26e270e8",
+        "chatSessionId": "sess_88b04358-47f2-4b3a-bd97-44772a161b9e",
+        "timestamp": 1784871366762
+      },
+      {
+        "executionId": "8d17a26a-29f8-40ef-b4cf-36be26e270e8",
+        "chatSessionId": "sess_88b04358-47f2-4b3a-bd97-44772a161b9e",
+        "timestamp": 1784871472510
+      }
+    ],
+    "15. Replace Dashboard mock-backed result consumption": [
+      {
+        "executionId": "2df8f281-0a00-4475-b28a-d1a0b9dc5204",
+        "chatSessionId": "sess_199c821c-0ecd-4d33-94c3-c0b8345bfff0",
+        "timestamp": 1784868639265
+      },
+      {
+        "executionId": "4400bdc5-fa7c-4435-bd78-6bb42e2f18f5",
+        "chatSessionId": "sess_88b04358-47f2-4b3a-bd97-44772a161b9e",
+        "timestamp": 1784869013491
+      },
+      {
+        "executionId": "873394e7-34de-47da-872d-3025a6c152d4",
+        "chatSessionId": "sess_88b04358-47f2-4b3a-bd97-44772a161b9e",
+        "timestamp": 1784871490048
+      },
+      {
+        "executionId": "873394e7-34de-47da-872d-3025a6c152d4",
+        "chatSessionId": "sess_88b04358-47f2-4b3a-bd97-44772a161b9e",
+        "timestamp": 1784871589306
+      }
+    ],
+    "16. Validate domain behavior and integration contracts": [
+      {
+        "executionId": "2df8f281-0a00-4475-b28a-d1a0b9dc5204",
+        "chatSessionId": "sess_199c821c-0ecd-4d33-94c3-c0b8345bfff0",
+        "timestamp": 1784868639291
+      },
+      {
+        "executionId": "4400bdc5-fa7c-4435-bd78-6bb42e2f18f5",
+        "chatSessionId": "sess_88b04358-47f2-4b3a-bd97-44772a161b9e",
+        "timestamp": 1784869013508
+      },
+      {
+        "executionId": "873394e7-34de-47da-872d-3025a6c152d4",
+        "chatSessionId": "sess_88b04358-47f2-4b3a-bd97-44772a161b9e",
+        "timestamp": 1784871595865
+      },
+      {
+        "executionId": "873394e7-34de-47da-872d-3025a6c152d4",
+        "chatSessionId": "sess_88b04358-47f2-4b3a-bd97-44772a161b9e",
+        "timestamp": 1784871668682
+      }
+    ],
+    "17. Run end-to-end smoke validation": [
+      {
+        "executionId": "2df8f281-0a00-4475-b28a-d1a0b9dc5204",
+        "chatSessionId": "sess_199c821c-0ecd-4d33-94c3-c0b8345bfff0",
+        "timestamp": 1784868639317
+      },
+      {
+        "executionId": "4400bdc5-fa7c-4435-bd78-6bb42e2f18f5",
+        "chatSessionId": "sess_88b04358-47f2-4b3a-bd97-44772a161b9e",
+        "timestamp": 1784869013531
+      },
+      {
+        "executionId": "873394e7-34de-47da-872d-3025a6c152d4",
+        "chatSessionId": "sess_88b04358-47f2-4b3a-bd97-44772a161b9e",
+        "timestamp": 1784871676020
+      },
+      {
+        "executionId": "873394e7-34de-47da-872d-3025a6c152d4",
+        "chatSessionId": "sess_88b04358-47f2-4b3a-bd97-44772a161b9e",
+        "timestamp": 1784871725906
+      }
+    ]
+  }
+}

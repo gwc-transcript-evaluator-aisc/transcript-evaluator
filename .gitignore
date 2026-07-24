@@ -38,3 +38,5 @@ coverage/
 
 # AWS
 .aws-sam/
+
+**/__pycache__/

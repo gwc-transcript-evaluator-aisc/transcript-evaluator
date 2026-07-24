@@ -1,0 +1,179 @@
+================================================================================
+DATABASE SCHEMA — Student Transcript Processor
+Database: transcripts (Aurora PostgreSQL)
+Host: transcript-db.cluster-cpe82aiiyeg6.us-west-2.rds.amazonaws.com
+Port: 5432
+================================================================================
+
+
+TABLE: transcripts
+Description: Tracks each uploaded PDF through the processing pipeline.
+--------------------------------------------------------------------------------
+Column                  Type            Nullable    Notes
+--------------------------------------------------------------------------------
+id                      INTEGER         NOT NULL    Primary Key, auto-increment
+original_filename       VARCHAR(255)    NOT NULL    Uploaded file name
+s3_input_key            VARCHAR(512)    NOT NULL    S3 key where PDF is stored (unique)
+s3_output_prefix        VARCHAR(512)    NULL        S3 folder where BDA wrote results
+bda_invocation_arn      VARCHAR(512)    NULL        BDA job ARN for tracking
+status                  VARCHAR(50)     NOT NULL    pending | submitted | completed | failed
+error_message           TEXT            NULL        Error details if status = failed
+uploaded_at             TIMESTAMP       NULL        When the file was uploaded
+processed_at            TIMESTAMP       NULL        When BDA processing finished
+review_status           VARCHAR(50)     NOT NULL    UNREVIEWED | IN_REVIEW | VERIFIED | FLAGGED_RERUN
+reviewed_by             VARCHAR(255)    NULL        Who locked / last reviewed
+reviewed_at             TIMESTAMP       NULL        When review_status last changed
+review_locked_at        TIMESTAMP       NULL        When in_review lock was acquired
+
+Relationships:
+  - transcripts.id → students.transcript_id (one-to-one)
+  - transcripts.id → grading_legend.transcript_id (one-to-many)
+  - transcripts.id → audit_log.transcript_id (one-to-many)
+
+
+TABLE: students
+Description: Personal and academic information extracted from a transcript.
+--------------------------------------------------------------------------------
+Column                  Type            Nullable    Notes
+--------------------------------------------------------------------------------
+id                      INTEGER         NOT NULL    Primary Key, auto-increment
+transcript_id           INTEGER         NOT NULL    FK → transcripts.id (unique)
+full_name               VARCHAR(255)    NULL        Student full name
+student_id              VARCHAR(100)    NULL        Student ID / enrollment number
+date_of_birth           VARCHAR(50)     NULL        Date of birth
+email                   VARCHAR(255)    NULL        Email address
+phone                   VARCHAR(50)     NULL        Phone number
+address                 TEXT            NULL        Mailing or home address
+institution             VARCHAR(255)    NULL        College / university name
+institution_address     TEXT            NULL        Institution mailing address
+institution_website     VARCHAR(512)    NULL        Institution website URL
+institution_phone       VARCHAR(50)     NULL        Institution phone number
+program                 VARCHAR(255)    NULL        Degree program (e.g. "Bachelor of Science")
+major                   VARCHAR(255)    NULL        Declared major
+minor                   VARCHAR(255)    NULL        Declared minor
+enrollment_date         VARCHAR(50)     NULL        First enrollment date
+graduation_date         VARCHAR(50)     NULL        Graduation / conferral date
+gpa                     FLOAT           NULL        Cumulative GPA
+total_credits           FLOAT           NULL        Total credits earned
+raw_text                TEXT            NULL        Full extracted text (first 10,000 chars)
+created_at              TIMESTAMP       NULL        When record was created
+
+Relationships:
+  - students.transcript_id → transcripts.id (many-to-one)
+  - students.id → courses.student_id (one-to-many)
+
+
+TABLE: courses
+Description: Individual course / class entries from a student transcript.
+--------------------------------------------------------------------------------
+Column                  Type            Nullable    Notes
+--------------------------------------------------------------------------------
+id                      INTEGER         NOT NULL    Primary Key, auto-increment
+student_id              INTEGER         NOT NULL    FK → students.id
+course_code             VARCHAR(50)     NULL        e.g. "MATH& 151", "DHYG124"
+course_name             VARCHAR(255)    NULL        e.g. "Calculus", "Dental Radiology"
+credits                 FLOAT           NULL        Credit hours earned
+grade                   VARCHAR(10)     NULL        Letter grade (e.g. "A", "B+", "TR", "W")
+grade_points            FLOAT           NULL        Quality points earned
+term                    VARCHAR(100)    NULL        Original term value from BDA
+term_season             VARCHAR(50)     NULL        Parsed: FALL, SPRING, SUMMER, WINTER, TERM 1, etc.
+term_year               VARCHAR(10)     NULL        Parsed: 2020, 2021, etc.
+year                    VARCHAR(10)     NULL        Academic year
+instructor              VARCHAR(255)    NULL        Professor / instructor name
+department              VARCHAR(255)    NULL        Department code (e.g. "MATH", "ENGL")
+status                  VARCHAR(50)     NULL        Completed | Transfer | Withdrawn | In Progress
+created_at              TIMESTAMP       NULL        When record was created
+
+Relationships:
+  - courses.student_id → students.id (many-to-one)
+
+
+TABLE: grading_legend
+Description: Grade symbol definitions extracted from a transcript's grading policy.
+--------------------------------------------------------------------------------
+Column                  Type            Nullable    Notes
+--------------------------------------------------------------------------------
+id                      INTEGER         NOT NULL    Primary Key, auto-increment
+transcript_id           INTEGER         NOT NULL    FK → transcripts.id
+symbol                  VARCHAR(20)     NOT NULL    Grade letter/code (e.g. "W", "I", "S", "TR")
+meaning                 VARCHAR(500)    NULL        What the symbol means
+grade_points            VARCHAR(50)     NULL        Point value if listed (e.g. "4.00", "no credit")
+created_at              TIMESTAMP       NULL        When record was created
+
+Relationships:
+  - grading_legend.transcript_id → transcripts.id (many-to-one)
+
+
+TABLE: audit_log
+Description: Chronological log of all reviews and edits.
+--------------------------------------------------------------------------------
+Column                  Type            Nullable    Notes
+--------------------------------------------------------------------------------
+id                      INTEGER         NOT NULL    Primary Key, auto-increment
+transcript_id           INTEGER         NOT NULL    FK → transcripts.id
+table_name              VARCHAR(50)     NOT NULL    "students" or "courses"
+record_id               INTEGER         NOT NULL    PK of the row edited
+field_name              VARCHAR(100)    NULL        Column that was changed
+old_value               TEXT            NULL        Previous value (as string)
+new_value               TEXT            NULL        Updated value (as string)
+action                  VARCHAR(50)     NOT NULL    Action type (see below)
+user_name               VARCHAR(255)    NOT NULL    Who made the change
+created_at              TIMESTAMP       NULL        When the action occurred
+
+Actions logged:
+  - edit              : field value changed
+  - review_started    : transcript locked for review
+  - review_unlocked   : lock released without verifying
+  - verified          : data confirmed correct
+  - flagged_rerun     : marked for BDA reprocessing
+  - course_added      : new course row inserted
+  - course_deleted    : course row removed
+
+Relationships:
+  - audit_log.transcript_id → transcripts.id (many-to-one)
+
+
+================================================================================
+ENTITY RELATIONSHIPS
+================================================================================
+
+  transcripts (1) ──── (1) students (1) ──── (N) courses
+       │
+       ├──── (N) grading_legend
+       │
+       └──── (N) audit_log
+
+  One transcript produces one student record.
+  One student record can have many course records.
+  One transcript can have many grading legend entries.
+  One transcript can have many audit log entries.
+
+================================================================================
+ENUM / STATUS VALUES
+================================================================================
+
+ProcessingStatus (transcripts.status):
+  - pending      : uploaded to S3, BDA job not yet submitted
+  - submitted    : BDA job invoked, waiting for result
+  - completed    : result parsed and stored successfully
+  - failed       : error at any stage (see error_message)
+
+ReviewStatus (transcripts.review_status):
+  - UNREVIEWED    : not yet looked at by a human (default)
+  - IN_REVIEW     : currently locked for review (30-min timeout)
+  - VERIFIED      : human confirmed data is correct
+  - FLAGGED_RERUN : marked for BDA reprocessing
+
+================================================================================
+DATABASE USERS
+================================================================================
+
+Admin (full access):
+  User:     postgres
+  Password: groupten
+
+Read-only (SELECT only):
+  User:     reader
+  Password: readonlypass123
+
+================================================================================

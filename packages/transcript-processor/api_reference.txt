@@ -1,0 +1,222 @@
+================================================================================
+API REFERENCE — Student Transcript Processor
+Base URL: https://krm8dkd195.execute-api.us-west-2.amazonaws.com
+================================================================================
+
+
+UPLOAD & STATUS
+================================================================================
+
+POST /upload
+  Description: Upload a PDF transcript for processing.
+  Content-Type: multipart/form-data
+  Body: Form field "pdf_file" with the PDF file.
+  Response (202):
+    {
+      "message": "File uploaded successfully. Processing has started.",
+      "transcript_id": 9,
+      "filename": "transcript.pdf",
+      "status": "submitted",
+      "status_url": "/status/9"
+    }
+
+GET /status/{transcript_id}
+  Description: Check processing status for a transcript job.
+  Response (200):
+    {
+      "transcript_id": 9,
+      "filename": "transcript.pdf",
+      "status": "completed",
+      "uploaded_at": "2026-07-22T03:27:07.462344",
+      "processed_at": "2026-07-22T03:27:28.056267",
+      "error_message": null,
+      "detail_url": "/transcript/9"
+    }
+
+GET /transcripts
+  Description: Paginated list of all transcript jobs.
+  Query params: page (default 1), per_page (default 20, max 100)
+  Response (200):
+    {
+      "page": 1,
+      "per_page": 20,
+      "total": 6,
+      "transcripts": [...]
+    }
+
+GET /transcript/{transcript_id}
+  Description: Full extracted data for one transcript (student + courses).
+  Response (200):
+    {
+      "transcript_id": 9,
+      "filename": "...",
+      "status": "completed",
+      "student": {
+        "full_name": "...",
+        "institution": "...",
+        "gpa": 3.32,
+        "courses": [
+          {"course_code": "MATH& 151", "course_name": "Calculus", "grade": "C", ...}
+        ]
+      }
+    }
+
+
+REVIEW FLOW
+================================================================================
+
+All review endpoints require: {"user_name": "..."} in the request body.
+
+POST /review/lock/{transcript_id}
+  Description: Lock a transcript for review. Prevents others from editing.
+  Lock timeout: 30 minutes (auto-expires if not unlocked/verified).
+  Body: {"user_name": "Robin"}
+  Response (200):
+    {"message": "Transcript #9 locked for review by 'Robin'.", "expires_at": "..."}
+  Response (409) — conflict:
+    {"error": "Currently being reviewed by 'Robin'.", "locked_by": "Robin",
+     "locked_at": "...", "expires_at": "..."}
+
+POST /review/unlock/{transcript_id}
+  Description: Release a review lock without verifying.
+  Body: {"user_name": "Robin"}
+  Response (200):
+    {"message": "Transcript #9 unlocked."}
+  Note: Only the lock holder can unlock.
+
+POST /review/verify/{transcript_id}
+  Description: Mark transcript as verified (data confirmed correct).
+  Body: {"user_name": "Robin"}
+  Response (200):
+    {"message": "Transcript #9 verified by 'Robin'."}
+  Note: Must be locked by this user, or not locked at all.
+
+POST /review/flag/{transcript_id}
+  Description: Flag transcript for BDA re-processing.
+  Body: {"user_name": "Robin"}
+  Response (200):
+    {"message": "Transcript #9 flagged for re-run by 'Robin'."}
+
+
+EDIT FLOW
+================================================================================
+
+All edit endpoints require: {"user_name": "..."} in the request body.
+Edits are only allowed when:
+  - The transcript is not locked by someone else, OR
+  - The transcript is locked by the same user making the edit.
+
+PUT /student/{student_id}
+  Description: Update student-level fields.
+  Body:
+    {
+      "user_name": "Robin",
+      "fields": {
+        "gpa": 3.32,
+        "institution": "South Puget Sound Community College"
+      }
+    }
+  Allowed fields: full_name, student_id, date_of_birth, email, phone,
+    address, institution, program, major, minor, enrollment_date,
+    graduation_date, gpa, total_credits
+  Response (200):
+    {"message": "Student #3 updated."}
+
+PUT /course/{course_id}
+  Description: Update a single course.
+  Body:
+    {
+      "user_name": "Robin",
+      "fields": {
+        "grade": "A",
+        "credits": 5.0
+      }
+    }
+  Allowed fields: course_code, course_name, credits, grade, grade_points,
+    semester, year, instructor, department, status
+  Response (200):
+    {"message": "Course #15 updated."}
+
+DELETE /course/{course_id}
+  Description: Remove a course entry.
+  Body: {"user_name": "Robin"}
+  Response (200):
+    {"message": "Course #15 deleted."}
+  Note: The deleted course data is preserved in the audit log.
+
+POST /student/{student_id}/courses
+  Description: Add a new course to a student.
+  Body:
+    {
+      "user_name": "Robin",
+      "course": {
+        "course_code": "BIO 101",
+        "course_name": "Introduction to Biology",
+        "credits": 4.0,
+        "grade": "B+",
+        "semester": "FALL 2020"
+      }
+    }
+  Allowed fields: course_code, course_name, credits, grade, grade_points,
+    semester, year, instructor, department, status
+  Response (201):
+    {"message": "Course #31 added.", "course_id": 31}
+
+
+AUDIT LOG
+================================================================================
+
+GET /audit/{transcript_id}
+  Description: View full edit and review history for a transcript.
+  Response (200):
+    {
+      "transcript_id": 8,
+      "entries": [
+        {
+          "id": 3,
+          "table_name": "students",
+          "record_id": 3,
+          "field_name": "institution",
+          "old_value": null,
+          "new_value": "South Puget Sound Community College",
+          "action": "edit",
+          "user_name": "Robin",
+          "created_at": "2026-07-22T22:25:28.658214"
+        }
+      ],
+      "count": 1
+    }
+  Actions logged: edit, review_started, review_unlocked, verified,
+    flagged_rerun, course_added, course_deleted
+
+
+DATABASE QUERY (Dev/Debug)
+================================================================================
+
+POST /query
+  Description: Run raw SQL SELECT queries against the database.
+  Body: {"sql": "SELECT * FROM courses LIMIT 10"}
+  Response (200):
+    {"columns": [...], "rows": [...], "count": 10}
+  Note: Only SELECT is allowed by default.
+  Admin mode: Pass "admin_key": "setup-2026" to run DDL/DML statements.
+
+
+ERROR RESPONSES
+================================================================================
+
+400 — Bad request (missing fields, invalid input)
+403 — Forbidden (locked by another user)
+404 — Not found
+409 — Conflict (transcript already locked by someone else)
+500 — Internal server error
+
+
+REVIEW STATUS VALUES
+================================================================================
+
+  unreviewed    — not yet looked at by a human (default)
+  in_review     — currently locked for review
+  verified      — human confirmed data is correct
+  flagged_rerun — marked for BDA reprocessing
+================================================================================

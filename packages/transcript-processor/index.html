@@ -1,0 +1,742 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Student Transcript Processor</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #f0f4f8;
+      color: #1a202c;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2rem 1rem;
+    }
+
+    header { text-align: center; margin-bottom: 2rem; }
+    header h1 { font-size: 1.75rem; font-weight: 700; color: #2d3748; }
+    header p  { margin-top: 0.4rem; color: #718096; font-size: 0.95rem; }
+
+    .card {
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 2px 12px rgba(0,0,0,.08);
+      padding: 2rem;
+      width: 100%;
+      max-width: 1200px;
+    }
+
+    /* Drop zone */
+    #drop-zone {
+      border: 2px dashed #cbd5e0;
+      border-radius: 8px;
+      padding: 2.5rem 1.5rem;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color .2s, background .2s;
+    }
+    #drop-zone:hover,
+    #drop-zone.dragover { border-color: #4299e1; background: #ebf8ff; }
+    #drop-zone svg { color: #a0aec0; margin-bottom: .75rem; }
+    #drop-zone p { color: #718096; font-size: .9rem; }
+    #drop-zone span { color: #4299e1; font-weight: 600; }
+    #file-name {
+      margin-top: .6rem;
+      font-size: .85rem;
+      color: #2d3748;
+      font-weight: 500;
+      min-height: 1.2em;
+    }
+
+    input[type="file"] { display: none; }
+
+    #submit-btn {
+      display: block;
+      width: 100%;
+      margin-top: 1.25rem;
+      padding: .75rem;
+      background: #4299e1;
+      color: #fff;
+      font-size: 1rem;
+      font-weight: 600;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background .2s;
+    }
+    #submit-btn:hover:not(:disabled) { background: #3182ce; }
+    #submit-btn:disabled { background: #a0aec0; cursor: not-allowed; }
+
+    /* Status panel */
+    #status-panel { margin-top: 1.5rem; display: none; }
+    .status-row {
+      display: flex;
+      align-items: center;
+      gap: .6rem;
+      padding: .75rem 1rem;
+      border-radius: 8px;
+      font-size: .9rem;
+    }
+    .status-row.pending   { background: #fffff0; color: #744210; }
+    .status-row.submitted { background: #ebf8ff; color: #2b6cb0; }
+    .status-row.completed { background: #f0fff4; color: #276749; }
+    .status-row.failed    { background: #fff5f5; color: #9b2c2c; }
+
+    .dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+    .pending   .dot { background: #d69e2e; }
+    .submitted .dot { background: #3182ce; animation: pulse 1.2s infinite; }
+    .completed .dot { background: #38a169; }
+    .failed    .dot { background: #e53e3e; }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: .3; }
+    }
+
+    #status-msg  { flex: 1; }
+    #detail-link { font-size: .85rem; color: #4299e1; text-decoration: none; }
+    #detail-link:hover { text-decoration: underline; }
+    #error-detail { margin-top: .4rem; font-size: .8rem; color: #9b2c2c; }
+
+    /* Recent uploads */
+    .section-title {
+      font-size: 1rem;
+      font-weight: 600;
+      color: #2d3748;
+      margin: 2rem 0 .75rem;
+    }
+
+    table { width: 100%; border-collapse: collapse; font-size: .85rem; }
+    th {
+      text-align: left;
+      padding: .5rem .75rem;
+      background: #f7fafc;
+      color: #718096;
+      font-weight: 600;
+      border-bottom: 1px solid #e2e8f0;
+    }
+    td {
+      padding: .5rem .75rem;
+      border-bottom: 1px solid #f0f4f8;
+      color: #4a5568;
+    }
+    tr:last-child td { border-bottom: none; }
+
+    .badge {
+      display: inline-block;
+      padding: .15rem .5rem;
+      border-radius: 9999px;
+      font-size: .75rem;
+      font-weight: 600;
+    }
+    .badge-pending   { background: #fefcbf; color: #744210; }
+    .badge-submitted { background: #bee3f8; color: #2b6cb0; }
+    .badge-completed { background: #c6f6d5; color: #276749; }
+    .badge-failed    { background: #fed7d7; color: #9b2c2c; }
+    .badge-verified  { background: #c6f6d5; color: #276749; }
+    .badge-in_review { background: #bee3f8; color: #2b6cb0; }
+    .badge-flagged_rerun { background: #fefcbf; color: #744210; }
+    .badge-unreviewed { background: #fed7d7; color: #9b2c2c; }
+
+    a.view-link { color: #4299e1; text-decoration: none; font-size: .8rem; }
+    a.view-link:hover { text-decoration: underline; }
+    .btn-del-row {
+      background: #fed7d7; border: 1px solid #feb2b2; color: #9b2c2c;
+      cursor: pointer; font-size: .7rem; font-weight: 600;
+      padding: .2rem .5rem; border-radius: 4px;
+    }
+    .btn-del-row:hover { background: #fc8181; color: #fff; border-color: #fc8181; }
+    #no-uploads { color: #a0aec0; font-size: .875rem; text-align: center; padding: 1rem 0; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Student Transcript Processor</h1>
+  <p>Upload a PDF transcript — personal info and course records are extracted automatically.</p>
+</header>
+
+<div class="card">
+
+  <form id="upload-form" enctype="multipart/form-data">
+    <div id="drop-zone" role="button" tabindex="0" aria-label="Click or drag a PDF file here to upload">
+      <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" fill="none"
+           viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round"
+              d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+      </svg>
+      <p><span>Click to browse</span> or drag &amp; drop a PDF here</p>
+      <p id="file-name"></p>
+    </div>
+    <input type="file" id="pdf-input" name="pdf_file" accept=".pdf" aria-label="Select PDF file" />
+    <button type="submit" id="submit-btn" disabled>Upload &amp; Process</button>
+  </form>
+
+  <!-- Generate test transcript -->
+  <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #e2e8f0;">
+    <div style="display: flex; align-items: center; gap: .5rem;">
+      <span style="font-size: .85rem; color: #718096;">Generate test transcript:</span>
+      <button id="generate-btn" onclick="generateAndUpload()" style="
+        padding: .4rem .8rem;
+        background: #ebf8ff;
+        color: #2b6cb0;
+        border: 1px solid #bee3f8;
+        border-radius: 6px;
+        font-size: .8rem;
+        font-weight: 600;
+        cursor: pointer;
+      ">Generate &amp; Upload</button>
+    </div>
+  </div>
+
+  <div id="status-panel" aria-live="polite">
+    <div id="status-row" class="status-row pending">
+      <div class="dot"></div>
+      <span id="status-msg">Uploading…</span>
+      <a id="detail-link" href="#" style="display:none" target="_blank">View results →</a>
+    </div>
+    <div id="error-detail"></div>
+  </div>
+
+  <div class="section-title" style="display:flex;align-items:center;gap:.75rem;">
+    Recent uploads
+    <label style="font-size:.75rem;color:#718096;font-weight:400;cursor:pointer;margin-left:auto;">
+      <input type="checkbox" id="toggle-delete" onchange="toggleDeleteMode(this.checked)" style="margin-right:.3rem;" />
+      Show delete
+    </label>
+  </div>
+  <div id="recent-container">
+    <p id="no-uploads">No uploads yet.</p>
+  </div>
+
+  <!-- SQL Query Panel -->
+  <div class="section-title">Database Query</div>
+  <div id="query-panel">
+    <textarea id="sql-input" rows="3" placeholder="SELECT * FROM courses LIMIT 10" style="
+      width: 100%;
+      font-family: monospace;
+      font-size: .85rem;
+      padding: .5rem;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+      resize: vertical;
+    "></textarea>
+    <button id="run-query-btn" style="
+      margin-top: .5rem;
+      padding: .5rem 1rem;
+      background: #2d3748;
+      color: #fff;
+      font-size: .85rem;
+      font-weight: 600;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    ">Run Query</button>
+    <div id="query-result" style="margin-top: .75rem; overflow-x: auto;"></div>
+  </div>
+
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script>
+  // ----------------------------------------------------------------
+  // API Gateway base URL — all requests go here
+  // ----------------------------------------------------------------
+  const API_BASE = "https://krm8dkd195.execute-api.us-west-2.amazonaws.com";
+
+  // ---- Elements ----
+  const dropZone    = document.getElementById('drop-zone');
+  const fileInput   = document.getElementById('pdf-input');
+  const submitBtn   = document.getElementById('submit-btn');
+  const fileNameEl  = document.getElementById('file-name');
+  const form        = document.getElementById('upload-form');
+  const statusPanel = document.getElementById('status-panel');
+  const statusRow   = document.getElementById('status-row');
+  const statusMsg   = document.getElementById('status-msg');
+  const detailLink  = document.getElementById('detail-link');
+  const errorDetail = document.getElementById('error-detail');
+  const recentContainer = document.getElementById('recent-container');
+  const noUploads       = document.getElementById('no-uploads');
+
+  // Track the dropped file separately since drag-and-drop doesn't set fileInput.files
+  let droppedFile = null;
+
+  // ---- Drop zone ----
+  dropZone.addEventListener('click', () => fileInput.click());
+  dropZone.addEventListener('keydown', e => {
+    if (e.key === 'Enter' || e.key === ' ') fileInput.click();
+  });
+  dropZone.addEventListener('dragover', e => {
+    e.preventDefault();
+    dropZone.classList.add('dragover');
+  });
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+  dropZone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropZone.classList.remove('dragover');
+    const file = e.dataTransfer.files[0];
+    if (file && file.type === 'application/pdf') {
+      droppedFile = file;
+      setFile(file);
+    } else if (file) {
+      showStatus('failed', 'Only PDF files are accepted.');
+      statusPanel.style.display = 'block';
+    }
+  });
+  fileInput.addEventListener('change', () => {
+    if (fileInput.files[0]) {
+      droppedFile = null; // clear dropped file when using file picker
+      setFile(fileInput.files[0]);
+    }
+  });
+
+  function setFile(file) {
+    fileNameEl.textContent = file.name;
+    submitBtn.disabled = false;
+  }
+
+  // ---- Upload ----
+  form.addEventListener('submit', async e => {
+    e.preventDefault();
+    // Use dropped file if available, otherwise fall back to file input
+    const selectedFile = droppedFile || fileInput.files[0];
+    if (!selectedFile) return;
+
+    submitBtn.disabled = true;
+    detailLink.style.display = 'none';
+    errorDetail.textContent  = '';
+    showStatus('pending', 'Uploading file…');
+
+    // Build FormData using the selected file (dropped or picked)
+    const fd = new FormData();
+    fd.append('pdf_file', selectedFile, selectedFile.name);
+    let data;
+    try {
+      const res = await fetch(`${API_BASE}/upload`, { method: 'POST', body: fd });
+      data = await res.json();
+      if (!res.ok) {
+        const errMsg = data.error || 'Unknown server error.';
+        if (res.status === 400) {
+          showStatus('failed', `Upload rejected: ${errMsg}`);
+        } else if (res.status === 500 && errMsg.includes('S3')) {
+          showStatus('failed', `S3 upload failed: ${errMsg}`);
+        } else if (res.status === 500 && errMsg.includes('BDA')) {
+          showStatus('failed', `BDA invocation failed: ${errMsg}`);
+        } else {
+          showStatus('failed', `Server error: ${errMsg}`);
+        }
+        errorDetail.textContent = `HTTP ${res.status}`;
+        submitBtn.disabled = false;
+        return;
+      }
+    } catch (err) {
+      showStatus('failed', 'Network error — could not reach the server.');
+      errorDetail.textContent = 'Check your internet connection or try again later.';
+      submitBtn.disabled = false;
+      return;
+    }
+
+    showStatus('submitted', `Processing transcript (job #${data.transcript_id})…`);
+    addRecentRow(data);
+    pollStatus(data.transcript_id);
+
+    // Reset form for next upload
+    form.reset();
+    droppedFile = null;
+    fileNameEl.textContent = '';
+    submitBtn.disabled = true;
+  });
+
+  // ---- Status polling ----
+  const activePollers = {};  // id → intervalId
+
+  function pollStatus(id) {
+    // Don't create duplicate pollers
+    if (activePollers[id]) return;
+
+    activePollers[id] = setInterval(async () => {
+      try {
+        const res  = await fetch(`${API_BASE}/status/${id}`);
+        const data = await res.json();
+        // Always update the row badge
+        updateRecentRow(id, data.status);
+        // Update the status panel to show the most recent change
+        updateStatus(id, data);
+        if (data.status === 'completed' || data.status === 'failed') {
+          clearInterval(activePollers[id]);
+          delete activePollers[id];
+          // Force a second badge update after a short delay (DOM race guard)
+          setTimeout(() => updateRecentRow(id, data.status), 500);
+        }
+      } catch (_) { /* ignore transient errors */ }
+    }, 4000);
+  }
+
+  function updateStatus(id, data) {
+    if (data.status === 'completed') {
+      showStatus('completed', `Transcript #${id} processed successfully.`);
+      detailLink.href         = `review.html?id=${id}`;
+      detailLink.style.display = 'inline';
+    } else if (data.status === 'failed') {
+      showStatus('failed', `Processing failed for transcript #${id}.`);
+      if (data.error_message) {
+        const msg = data.error_message.length > 200
+          ? data.error_message.substring(0, 200) + '…'
+          : data.error_message;
+        errorDetail.textContent = `Error: ${msg}`;
+      }
+    } else if (data.status === 'submitted') {
+      showStatus('submitted', `BDA is processing transcript #${id}…`);
+    } else if (data.status === 'pending') {
+      showStatus('pending', `Transcript #${id} pending — waiting for BDA job submission.`);
+    } else {
+      showStatus(data.status, `Status: ${data.status} — transcript #${id}`);
+    }
+  }
+
+  function showStatus(cssClass, message) {
+    statusPanel.style.display = 'block';
+    statusRow.className = `status-row ${cssClass}`;
+    statusMsg.textContent = message;
+  }
+
+  // ---- Recent uploads table ----
+  const recentRows = {};
+
+  function ensureTable() {
+    let tbl = recentContainer.querySelector('table');
+    if (!tbl) {
+      noUploads.style.display = 'none';
+      tbl = document.createElement('table');
+      tbl.innerHTML = `
+        <thead>
+          <tr><th>#</th><th>File</th><th>Status</th><th></th><th class="del-col" style="display:none;"></th></tr>
+        </thead>
+        <tbody></tbody>`;
+      recentContainer.appendChild(tbl);
+    }
+    return tbl.querySelector('tbody');
+  }
+
+  function addRecentRow(data) {
+    const tbody = ensureTable();
+    const tr    = document.createElement('tr');
+    tr.dataset.id = data.transcript_id;
+    tr.innerHTML = `
+      <td>${data.transcript_id}</td>
+      <td title="${data.filename}">${truncate(data.filename, 28)}</td>
+      <td><span class="badge badge-${data.status}">${data.status}</span></td>
+      <td>
+        <a class="view-link" href="view.html?id=${data.transcript_id}" target="_blank">View</a>
+        <a class="view-link" href="review.html?id=${data.transcript_id}" target="_blank" style="margin-left:.4rem;">Review</a>
+      </td>
+      <td class="del-col" style="display:none;"><button class="btn-del-row" onclick="deleteTranscript(${data.transcript_id}, this)">DEL</button></td>`;
+    tbody.prepend(tr);
+    recentRows[data.transcript_id] = tr;
+  }
+
+  function updateRecentRow(id, newStatus) {
+    // Try the in-memory map first
+    let tr = recentRows[id];
+    // Fallback: search the table by data-id attribute
+    if (!tr) {
+      const tbl = recentContainer.querySelector('table');
+      if (tbl) tr = tbl.querySelector(`tr[data-id="${id}"]`);
+    }
+    if (!tr) return;
+    const badge = tr.querySelector('.badge');
+    if (badge) { badge.className = `badge badge-${newStatus}`; badge.textContent = newStatus; }
+  }
+
+  function truncate(str, n) {
+    return str.length > n ? str.slice(0, n - 1) + '…' : str;
+  }
+
+  // ---- Load recent uploads on page load ----
+  (async () => {
+    try {
+      const res  = await fetch(`${API_BASE}/transcripts?per_page=50`);
+      const data = await res.json();
+      if (data.transcripts && data.transcripts.length > 0) {
+        const tbody = ensureTable();
+        for (const t of data.transcripts) {
+          const tr = document.createElement('tr');
+          tr.dataset.id = t.transcript_id;
+          tr.innerHTML = `
+            <td>${t.transcript_id}</td>
+            <td title="${t.filename}">${truncate(t.filename, 28)}</td>
+            <td><span class="badge badge-${t.status}">${t.status}</span> <span class="badge badge-${t.review_status || 'unreviewed'}">${(t.review_status || 'unreviewed').replace('_',' ')}</span></td>
+            <td>
+              <a class="view-link" href="view.html?id=${t.transcript_id}" target="_blank">View</a>
+              <a class="view-link" href="review.html?id=${t.transcript_id}" target="_blank" style="margin-left:.4rem;">Review</a>
+              ${t.pdf_url ? `<a class="view-link" href="${t.pdf_url}" target="_blank" style="margin-left:.4rem;">PDF</a>` : ''}
+            </td>
+            <td class="del-col" style="display:none;"><button class="btn-del-row" onclick="deleteTranscript(${t.transcript_id}, this)">DEL</button></td>`;
+          tbody.appendChild(tr);
+          recentRows[t.transcript_id] = tr;
+        }
+      }
+    } catch (_) { /* non-critical */ }
+  })();
+  // ---- SQL Query Panel ----
+  const sqlInput    = document.getElementById('sql-input');
+  const runQueryBtn = document.getElementById('run-query-btn');
+  const queryResult = document.getElementById('query-result');
+
+  runQueryBtn.addEventListener('click', async () => {
+    const sql = sqlInput.value.trim();
+    if (!sql) return;
+
+    runQueryBtn.disabled = true;
+    runQueryBtn.textContent = 'Running…';
+    queryResult.innerHTML = '';
+
+    try {
+      const res  = await fetch(`${API_BASE}/query`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({sql})
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        queryResult.innerHTML = `<p style="color:#e53e3e;font-size:.85rem;">${data.error || 'Query failed.'}</p>`;
+        return;
+      }
+
+      if (data.count === 0) {
+        queryResult.innerHTML = '<p style="color:#718096;font-size:.85rem;">No results.</p>';
+        return;
+      }
+
+      // Build table
+      let html = '<table><thead><tr>';
+      for (const col of data.columns) html += `<th>${col}</th>`;
+      html += '</tr></thead><tbody>';
+      for (const row of data.rows) {
+        html += '<tr>';
+        for (const col of data.columns) {
+          const val = row[col];
+          html += `<td>${val === null ? '<em style="color:#a0aec0">null</em>' : val}</td>`;
+        }
+        html += '</tr>';
+      }
+      html += '</tbody></table>';
+      html += `<p style="color:#718096;font-size:.75rem;margin-top:.4rem;">${data.count} row(s)</p>`;
+      queryResult.innerHTML = html;
+
+    } catch (err) {
+      queryResult.innerHTML = `<p style="color:#e53e3e;font-size:.85rem;">Network error: ${err.message}</p>`;
+    } finally {
+      runQueryBtn.disabled = false;
+      runQueryBtn.textContent = 'Run Query';
+    }
+  });
+
+  // Allow Ctrl+Enter to run query
+  sqlInput.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      runQueryBtn.click();
+    }
+  });
+
+  // ---- Delete mode ----
+  function toggleDeleteMode(show) {
+    document.querySelectorAll('.del-col').forEach(el => {
+      el.style.display = show ? '' : 'none';
+    });
+  }
+
+  async function deleteTranscript(id, btn) {
+    if (!confirm(`Delete transcript #${id}? This removes the record, PDF, and all extracted data permanently.`)) return;
+
+    btn.disabled = true;
+    btn.textContent = '...';
+
+    const res = await fetch(`${API_BASE}/transcript/${id}`, {
+      method: 'DELETE',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({admin_key: 'setup-2026'})
+    });
+    const data = await res.json();
+
+    if (res.ok) {
+      btn.closest('tr').remove();
+    } else {
+      alert(data.error || 'Delete failed');
+      btn.disabled = false;
+      btn.textContent = 'DEL';
+    }
+  }
+
+  // ---- Generate & Upload ----
+  const GEN_FIRST = ["James","Mary","Robert","Patricia","John","Jennifer","Michael","Linda","David","Elizabeth","William","Barbara","Anthony","Nancy","Steven","Margaret","Carlos","Maria","Wei","Yuki","Amir","Priya","Jamal","Fatima"];
+  const GEN_LAST = ["Smith","Johnson","Williams","Brown","Jones","Garcia","Miller","Davis","Rodriguez","Martinez","Lee","Nguyen","Kim","Chen","Patel","Singh","Tanaka","Okafor"];
+  const GEN_INST = [
+    {name:"South Puget Sound Community College", web:"www.spscc.edu"},
+    {name:"University of Bridgeport", web:"www.bridgeport.edu"},
+    {name:"Golden West College", web:"www.goldenwestcollege.edu"},
+    {name:"Portland Community College", web:"www.pcc.edu"},
+    {name:"Seattle Central College", web:"www.seattlecentral.edu"},
+    {name:"San Jose State University", web:"www.sjsu.edu"},
+    {name:"Bellevue College", web:"www.bellevuecollege.edu"},
+    {name:"Santa Monica College", web:"www.smc.edu"},
+  ];
+  const GEN_PROG = ["Associate in Arts","Associate in Science","Bachelor of Science","Bachelor of Arts"];
+  const GEN_MAJORS = ["Computer Science","Biology","Nursing","Business Administration","Psychology","Mathematics","Chemistry","Engineering"];
+  const GEN_DEPTS = ["MATH","ENGL","BIOL","CHEM","PSYC","HIST","ECON","CS","NURS","PHIL"];
+  const GEN_COURSES = {MATH:["College Algebra","Calculus I","Statistics","Precalculus"],ENGL:["English Composition I","English Composition II","Creative Writing"],BIOL:["General Biology","Anatomy & Physiology I","Microbiology"],CHEM:["General Chemistry I","Organic Chemistry","Biochemistry"],PSYC:["Intro to Psychology","Abnormal Psychology","Social Psychology"],HIST:["U.S. History to 1877","World History I","Western Civilization"],ECON:["Microeconomics","Macroeconomics"],CS:["Intro to Computer Science","Programming I","Data Structures"],NURS:["Nursing Fundamentals","Pharmacology","Clinical Practice"],PHIL:["Ethics","Logic","Intro to Philosophy"]};
+  const GEN_GRADES = ["A","A-","B+","B","B-","C+","C","C-","D","F"];
+  const GEN_GP = {A:4,"A-":3.67,"B+":3.33,B:3,"B-":2.67,"C+":2.33,C:2,"C-":1.67,D:1,F:0};
+  const GEN_SEMS = ["FALL","WINTER","SPRING","SUMMER"];
+
+  function gPick(a){return a[Math.floor(Math.random()*a.length)];}
+  function gRand(a,b){return Math.floor(Math.random()*(b-a+1))+a;}
+
+  async function generateAndUpload() {
+    const btn = document.getElementById('generate-btn');
+    btn.disabled = true; btn.textContent = 'Generating...';
+
+    const inst = gPick(GEN_INST);
+    const student = {
+      name: `${gPick(GEN_FIRST)} ${gPick(GEN_LAST)} GEN-${Date.now().toString(36)}`,
+      id: String(gRand(100000,999999)),
+      dob: `${String(gRand(1,12)).padStart(2,'0')}/${String(gRand(1,28)).padStart(2,'0')}/${gRand(1985,2004)}`,
+      institution: inst.name,
+      website: inst.web,
+      program: gPick(GEN_PROG),
+      major: gPick(GEN_MAJORS),
+    };
+
+    // Generate courses
+    const courses = [];
+    const numSem = gRand(3,6);
+    const startYear = gRand(2018,2023);
+    for (let i=0; i<numSem; i++) {
+      const sem = GEN_SEMS[i%4], year = startYear + Math.floor(i/4);
+      for (let j=0; j<gRand(2,4); j++) {
+        const dept = gPick(GEN_DEPTS);
+        const names = GEN_COURSES[dept]||["Special Topics"];
+        const credits = gPick([3,4,5]);
+        const grade = gPick(GEN_GRADES);
+        courses.push({code:`${dept} ${gRand(100,399)}`,name:gPick(names),credits,grade,points:Math.round(GEN_GP[grade]*credits*100)/100,semester:`${sem} ${year}`});
+      }
+    }
+
+    // Create PDF
+    const {jsPDF} = window.jspdf;
+    const doc = new jsPDF({unit:'pt',format:'letter'});
+    const pw = doc.internal.pageSize.getWidth();
+    let y = 50;
+
+    doc.setFontSize(14); doc.setFont("helvetica","bold");
+    doc.text("OFFICIAL TRANSCRIPT OF ACADEMIC RECORD", pw/2, y, {align:"center"}); y+=18;
+    doc.setFontSize(10); doc.setFont("helvetica","normal");
+    doc.text(student.institution, pw/2, y, {align:"center"}); y+=14;
+    doc.setFontSize(8); doc.setFont("helvetica","normal");
+    doc.text(`Office of the Registrar | ${student.website}`, pw/2, y, {align:"center"}); y+=28;
+
+    // Official transcript header
+    doc.setFontSize(9); doc.setFont("helvetica","bold");
+    doc.text("Official Transcript Academic Career", 50, y); y+=14;
+    doc.text("Print Date:", 380, y); doc.setFont("helvetica","normal");
+    const today = new Date(); doc.text(`${String(today.getMonth()+1).padStart(2,'0')}/${String(today.getDate()).padStart(2,'0')}/${today.getFullYear()}`, 435, y); y+=16;
+
+    doc.setFontSize(9); doc.setFont("helvetica","bold");
+    doc.text("Name:",50,y); doc.setFont("helvetica","normal"); doc.text(student.name,110,y);
+    doc.setFont("helvetica","bold"); doc.text("Student ID:",320,y); doc.setFont("helvetica","normal"); doc.text(student.id,390,y); y+=14;
+    doc.setFont("helvetica","bold"); doc.text("Date of Birth:",50,y); doc.setFont("helvetica","normal"); doc.text(student.dob,130,y);
+    doc.setFont("helvetica","bold"); doc.text("Program:",320,y); doc.setFont("helvetica","normal"); doc.text(student.program,375,y); y+=14;
+    doc.setFont("helvetica","bold"); doc.text("Major:",50,y); doc.setFont("helvetica","normal"); doc.text(student.major,90,y); y+=10;
+
+    // Degree awarded section
+    doc.setDrawColor(100); doc.line(50, y, 540, y); y+=12;
+    doc.setFont("helvetica","bold"); doc.text("Degrees Awarded", 50, y); y+=12;
+    doc.setFont("helvetica","normal");
+    doc.text(`${student.program} in ${student.major}`, 60, y); y+=10;
+    doc.text(`Confer Date: Pending`, 60, y); y+=14;
+    doc.setDrawColor(100); doc.line(50, y, 540, y); y+=14;
+
+    let curSem = null, totalCr = 0, totalPts = 0, semCr = 0, semPts = 0;
+    for (let ci = 0; ci < courses.length; ci++) {
+      const c = courses[ci];
+      const nextCourse = courses[ci + 1];
+
+      if (c.semester !== curSem) {
+        // Print previous semester totals
+        if (curSem && semCr > 0) {
+          doc.setFont("helvetica","oblique");
+          doc.text(`Term GPA: ${(semPts/semCr).toFixed(3)}    Term Totals: ${semCr.toFixed(1)} credits    ${semPts.toFixed(2)} points`, 80, y);
+          y += 14; semCr = 0; semPts = 0;
+        }
+        curSem = c.semester; y+=10;
+        if(y>700){doc.addPage();y=50;}
+        doc.setFont("helvetica","bold"); doc.text(c.semester,50,y); y+=12;
+        doc.text("Course",50,y); doc.text("Title",130,y); doc.text("Attempted",340,y); doc.text("Earned",390,y); doc.text("Grade",440,y); doc.text("Points",485,y);
+        y+=3; doc.setDrawColor(180); doc.line(50,y,540,y); y+=10;
+      }
+      if(y>720){doc.addPage();y=50;}
+      doc.setFont("helvetica","normal");
+      doc.text(c.code,50,y); doc.text(c.name.substring(0,30),130,y);
+      doc.text(c.credits.toFixed(1),352,y); doc.text(c.credits.toFixed(1),400,y);
+      doc.text(c.grade,445,y); doc.text(c.points.toFixed(2),488,y);
+      y+=12; totalCr+=c.credits; totalPts+=c.points; semCr+=c.credits; semPts+=c.points;
+
+      // If next course is different semester or end, print term totals
+      if (!nextCourse || nextCourse.semester !== curSem) {
+        y += 2;
+        doc.setFont("helvetica","oblique"); doc.setFontSize(8);
+        doc.text(`Term GPA: ${(semPts/semCr).toFixed(3)}    Attempted: ${semCr.toFixed(1)}    Earned: ${semCr.toFixed(1)}    Points: ${semPts.toFixed(2)}`, 80, y);
+        doc.setFontSize(9);
+        y += 12; semCr = 0; semPts = 0;
+      }
+    }
+
+    const gpa = totalCr>0?(totalPts/totalCr):0;
+    y+=20; if(y>700){doc.addPage();y=50;}
+    doc.setDrawColor(100); doc.line(50, y, 540, y); y+=14;
+    doc.setFont("helvetica","bold"); doc.setFontSize(10);
+    doc.text("Academic Summary", 50, y); y+=14;
+    doc.setFont("helvetica","normal"); doc.setFontSize(9);
+    doc.text(`Cum GPA: ${gpa.toFixed(3)}    Cum Totals: ${totalCr.toFixed(1)} attempted    ${totalCr.toFixed(1)} earned    ${totalPts.toFixed(2)} points`, 60, y); y+=20;
+
+    // End of transcript
+    doc.setFont("helvetica","bold"); doc.setFontSize(9);
+    doc.text("End of Official Transcript Academic Career", pw/2, y, {align:"center"}); y+=20;
+
+    doc.setFontSize(7); doc.setFont("helvetica","normal");
+    doc.text("CONFIDENTIAL RECORD ISSUED IN ACCORDANCE WITH THE FAMILY EDUCATIONAL RIGHTS AND PRIVACY ACT OF 1974", pw/2, y, {align:"center"}); y += 14;
+    doc.text("This transcript is official only when bearing the seal of the institution and the signature of the Registrar.", pw/2, y, {align:"center"});
+
+    // Convert to blob and upload
+    const pdfBlob = doc.output('blob');
+    const filename = `${student.name.replace(/ /g,'_')}_${student.id}.pdf`;
+
+    btn.textContent = 'Uploading...';
+    const fd = new FormData();
+    fd.append('pdf_file', pdfBlob, filename);
+
+    try {
+      const res = await fetch(`${API_BASE}/upload`, {method:'POST', body:fd});
+      const data = await res.json();
+      if (res.ok) {
+        showStatus('submitted', `Generated & uploaded: ${filename} (job #${data.transcript_id})`);
+        addRecentRow(data);
+        pollStatus(data.transcript_id);
+      } else {
+        showStatus('failed', data.error || 'Upload failed.');
+      }
+    } catch(err) {
+      showStatus('failed', 'Network error.');
+    }
+    btn.disabled = false; btn.textContent = 'Generate & Upload';
+  }
+</script>
+</body>
+</html>

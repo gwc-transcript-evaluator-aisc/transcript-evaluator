@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Transcript View</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #f0f4f8;
+      color: #1a202c;
+      min-height: 100vh;
+      padding: 1.5rem;
+    }
+
+    /* Header */
+    .header {
+      background: #fff;
+      padding: 1.25rem 1.5rem;
+      border-radius: 10px;
+      box-shadow: 0 1px 6px rgba(0,0,0,.06);
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+    .header h1 { font-size: 1.2rem; font-weight: 700; color: #2d3748; }
+    .header-right { margin-left: auto; display: flex; gap: .75rem; align-items: center; }
+    .header a {
+      font-size: .85rem;
+      color: #4299e1;
+      text-decoration: none;
+      padding: .3rem .6rem;
+      border: 1px solid #bee3f8;
+      border-radius: 5px;
+    }
+    .header a:hover { background: #ebf8ff; }
+    .badge {
+      padding: .2rem .5rem;
+      border-radius: 9999px;
+      font-size: .7rem;
+      font-weight: 600;
+    }
+    .badge-completed { background: #c6f6d5; color: #276749; }
+    .badge-verified  { background: #c6f6d5; color: #276749; }
+    .badge-unreviewed { background: #e2e8f0; color: #4a5568; }
+
+    /* Layout */
+    .content { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    @media (max-width: 900px) { .content { grid-template-columns: 1fr; } }
+
+    .card {
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 1px 6px rgba(0,0,0,.06);
+      padding: 1.25rem;
+    }
+    .card h2 {
+      font-size: .95rem;
+      font-weight: 600;
+      color: #2d3748;
+      margin-bottom: .75rem;
+      padding-bottom: .5rem;
+      border-bottom: 1px solid #e2e8f0;
+    }
+
+    /* Student info */
+    .info-grid {
+      display: grid;
+      grid-template-columns: 130px 1fr;
+      gap: .3rem .75rem;
+      font-size: .85rem;
+    }
+    .info-label { color: #718096; font-weight: 500; }
+    .info-value { color: #2d3748; }
+    .info-value a { color: #4299e1; text-decoration: none; }
+    .info-value a:hover { text-decoration: underline; }
+
+    /* Course table */
+    .courses-section { grid-column: 1 / -1; }
+    .courses-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: .82rem;
+    }
+    .courses-table th {
+      text-align: left;
+      padding: .5rem .6rem;
+      background: #f7fafc;
+      color: #718096;
+      font-weight: 600;
+      border-bottom: 1px solid #e2e8f0;
+      cursor: pointer;
+      user-select: none;
+    }
+    .courses-table th:hover { color: #2d3748; }
+    .courses-table td {
+      padding: .45rem .6rem;
+      border-bottom: 1px solid #f0f4f8;
+      color: #4a5568;
+    }
+    .courses-table tr { cursor: pointer; transition: background .15s; }
+    .courses-table tr:hover { background: #ebf8ff; }
+    .courses-table tr.active { background: #bee3f8; }
+    .sort-arrow { font-size: .65rem; margin-left: .2rem; }
+
+    /* Catalogue popup */
+    .catalogue-panel {
+      grid-column: 1 / -1;
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 2px 12px rgba(0,0,0,.1);
+      padding: 1.5rem;
+      display: none;
+      border-left: 4px solid #4299e1;
+    }
+    .catalogue-panel.visible { display: block; }
+    .catalogue-panel h3 {
+      font-size: 1rem;
+      font-weight: 700;
+      color: #2d3748;
+      margin-bottom: .5rem;
+    }
+    .catalogue-panel .cat-meta {
+      display: flex;
+      gap: 1.5rem;
+      flex-wrap: wrap;
+      margin-bottom: .75rem;
+      font-size: .82rem;
+      color: #718096;
+    }
+    .catalogue-panel .cat-meta span { font-weight: 600; color: #4a5568; }
+    .catalogue-panel .cat-desc {
+      font-size: .88rem;
+      color: #4a5568;
+      line-height: 1.6;
+      margin-bottom: .75rem;
+    }
+    .catalogue-panel .cat-prereq {
+      font-size: .82rem;
+      color: #744210;
+      background: #fffff0;
+      padding: .5rem .75rem;
+      border-radius: 6px;
+      border: 1px solid #fefcbf;
+    }
+    .catalogue-panel .cat-prereq strong { color: #744210; }
+    .cat-not-found {
+      font-size: .85rem;
+      color: #a0aec0;
+      font-style: italic;
+    }
+    .btn-scrape {
+      margin-top: .5rem;
+      padding: .3rem .7rem;
+      background: #ebf8ff;
+      color: #2b6cb0;
+      border: 1px solid #bee3f8;
+      border-radius: 5px;
+      font-size: .78rem;
+      cursor: pointer;
+      font-weight: 500;
+    }
+    .btn-scrape:hover { background: #bee3f8; }
+
+    /* Grading legend */
+    .legend-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: .8rem;
+    }
+    .legend-table th {
+      text-align: left; padding: .3rem .5rem;
+      background: #f7fafc; color: #718096; font-weight: 600;
+      border-bottom: 1px solid #e2e8f0;
+    }
+    .legend-table td { padding: .3rem .5rem; border-bottom: 1px solid #f0f4f8; color: #4a5568; }
+  </style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="header">
+  <h1 id="page-title">Transcript View</h1>
+  <span id="status-badge" class="badge badge-unreviewed">loading</span>
+  <div class="header-right">
+    <a id="pdf-link" href="#" target="_blank" style="display:none">View PDF</a>
+    <a id="review-link" href="#" target="_blank">Open in Review</a>
+  </div>
+</div>
+
+<!-- Content -->
+<div class="content">
+
+  <!-- Student Info -->
+  <div class="card">
+    <h2>Student Information</h2>
+    <div id="student-info" class="info-grid"></div>
+  </div>
+
+  <!-- Institution Info -->
+  <div class="card">
+    <h2>Institution</h2>
+    <div id="institution-info" class="info-grid"></div>
+  </div>
+
+  <!-- Courses -->
+  <div class="card courses-section">
+    <h2>Courses (<span id="course-count">0</span>)</h2>
+    <p style="font-size:.78rem;color:#718096;margin-bottom:.5rem;">Click a course to view catalogue details.</p>
+    <div id="courses-container"></div>
+  </div>
+
+  <!-- Catalogue detail panel -->
+  <div class="catalogue-panel" id="catalogue-panel"></div>
+
+  <!-- Grading Legend -->
+  <div class="card" id="legend-card" style="display:none;">
+    <h2>Grading Legend</h2>
+    <div id="legend-container"></div>
+  </div>
+
+</div>
+
+<script>
+  const API_BASE = "https://krm8dkd195.execute-api.us-west-2.amazonaws.com";
+  const params = new URLSearchParams(window.location.search);
+  const transcriptId = params.get("id");
+
+  if (!transcriptId) {
+    document.body.innerHTML = '<p style="padding:2rem;color:#e53e3e;">Missing ?id= parameter in URL.</p>';
+  }
+
+  let catalogueData = {};  // course_code → catalogue info
+  let institutionId = null;
+
+  // ----- Load transcript -----
+  async function loadTranscript() {
+    const res = await fetch(`${API_BASE}/transcript/${transcriptId}`);
+    const data = await res.json();
+
+    // Header
+    document.getElementById("page-title").textContent = `${data.filename}`;
+    const badge = document.getElementById("status-badge");
+    const rs = data.review_status || "unreviewed";
+    badge.textContent = rs.replace("_", " ");
+    badge.className = `badge badge-${rs}`;
+    document.getElementById("review-link").href = `review.html?id=${transcriptId}`;
+
+    if (data.pdf_url) {
+      const link = document.getElementById("pdf-link");
+      link.href = data.pdf_url;
+      link.style.display = "inline";
+    }
+
+    if (!data.student) return;
+    const s = data.student;
+
+    // Student info
+    const studentFields = [
+      ["Name", s.full_name],
+      ["Student ID", s.student_id],
+      ["Date of Birth", s.date_of_birth],
+      ["Email", s.email],
+      ["Phone", s.phone],
+      ["Program", s.program],
+      ["Major", s.major],
+      ["GPA", s.gpa],
+      ["Total Credits", s.total_credits],
+      ["Graduation", s.graduation_date],
+    ];
+    const studentEl = document.getElementById("student-info");
+    studentEl.innerHTML = studentFields
+      .filter(([, v]) => v)
+      .map(([label, value]) => `<span class="info-label">${label}</span><span class="info-value">${escHtml(String(value))}</span>`)
+      .join("");
+
+    // Institution info
+    const instFields = [
+      ["Institution", s.institution],
+      ["Address", s.institution_address],
+      ["Website", s.institution_website ? `<a href="https://${s.institution_website}" target="_blank">${s.institution_website}</a>` : null],
+      ["Phone", s.institution_phone],
+    ];
+    const instEl = document.getElementById("institution-info");
+    instEl.innerHTML = instFields
+      .filter(([, v]) => v)
+      .map(([label, value]) => `<span class="info-label">${label}</span><span class="info-value">${value}</span>`)
+      .join("");
+
+    // Courses
+    renderCourses(s.courses || []);
+
+    // Grading legend
+    if (data.grading_legend && data.grading_legend.length > 0) {
+      renderLegend(data.grading_legend);
+    }
+
+    // Load catalogue data for this institution
+    loadCatalogueData(s.institution);
+  }
+
+  // ----- Courses -----
+  let courses = [];
+  let sortCol = null;
+  let sortAsc = true;
+
+  function renderCourses(data) {
+    courses = data;
+    document.getElementById("course-count").textContent = courses.length;
+    const container = document.getElementById("courses-container");
+
+    let html = `<table class="courses-table"><thead><tr>
+      <th onclick="sortBy('course_code')">Code${arrow('course_code')}</th>
+      <th onclick="sortBy('course_name')">Name${arrow('course_name')}</th>
+      <th onclick="sortBy('credits')">Credits${arrow('credits')}</th>
+      <th onclick="sortBy('grade')">Grade${arrow('grade')}</th>
+      <th onclick="sortBy('term')">Term${arrow('term')}</th>
+    </tr></thead><tbody>`;
+
+    for (const c of courses) {
+      const code = (c.course_code || "").replace(/\s/g, "").toUpperCase();
+      const hasCat = catalogueData[code] ? " title='Catalogue data available'" : "";
+      html += `<tr onclick="showCatalogue('${code}', this)"${hasCat}>
+        <td>${escHtml(c.course_code || "")}</td>
+        <td>${escHtml(c.course_name || "")}</td>
+        <td>${c.credits != null ? c.credits : ""}</td>
+        <td>${escHtml(c.grade || "")}</td>
+        <td>${escHtml(c.term || "")}</td>
+      </tr>`;
+    }
+    html += "</tbody></table>";
+    container.innerHTML = html;
+  }
+
+  function arrow(col) {
+    if (sortCol !== col) return '<span class="sort-arrow"></span>';
+    return `<span class="sort-arrow">${sortAsc ? '▲' : '▼'}</span>`;
+  }
+
+  function sortBy(col) {
+    if (sortCol === col) sortAsc = !sortAsc;
+    else { sortCol = col; sortAsc = true; }
+
+    courses.sort((a, b) => {
+      let va = a[col] ?? "", vb = b[col] ?? "";
+      if (col === "credits") { va = parseFloat(va) || 0; vb = parseFloat(vb) || 0; }
+      else { va = String(va).toLowerCase(); vb = String(vb).toLowerCase(); }
+      if (va < vb) return sortAsc ? -1 : 1;
+      if (va > vb) return sortAsc ? 1 : -1;
+      return 0;
+    });
+    renderCourses(courses);
+  }
+
+  // ----- Catalogue popup -----
+  async function loadCatalogueData(institutionName) {
+    if (!institutionName) return;
+
+    // Find institution ID
+    const res = await fetch(`${API_BASE}/query`, {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({sql: `SELECT id FROM institutions WHERE name = '${institutionName.replace(/'/g, "''")}'`})
+    });
+    const data = await res.json();
+    if (!data.rows || data.rows.length === 0) return;
+
+    institutionId = data.rows[0].id;
+
+    // Load all catalogue courses for this institution
+    const catRes = await fetch(`${API_BASE}/catalogue/courses/${institutionId}`);
+    const catData = await catRes.json();
+
+    if (catData.courses) {
+      for (const c of catData.courses) {
+        catalogueData[c.course_code] = c;
+      }
+    }
+
+    // Re-render courses to update hover indicators
+    renderCourses(courses);
+  }
+
+  function showCatalogue(code, row) {
+    // Highlight active row
+    document.querySelectorAll(".courses-table tr.active").forEach(r => r.classList.remove("active"));
+    row.classList.add("active");
+
+    const panel = document.getElementById("catalogue-panel");
+    const cat = catalogueData[code];
+
+    if (cat) {
+      let html = `<h3>${escHtml(cat.course_code || code)} — ${escHtml(cat.title || "")}</h3>`;
+      html += `<div class="cat-meta">`;
+      if (cat.credits) html += `<div>Credits: <span>${cat.credits}</span></div>`;
+      if (cat.credit_type) html += `<div>Type: <span>${cat.credit_type}</span></div>`;
+      if (cat.department) html += `<div>Dept: <span>${escHtml(cat.department)}</span></div>`;
+      if (cat.college) html += `<div>College: <span>${escHtml(cat.college)}</span></div>`;
+      if (cat.level) html += `<div>Level: <span>${cat.level}</span></div>`;
+      if (cat.grade_mode) html += `<div>Grade Mode: <span>${cat.grade_mode}</span></div>`;
+      html += `</div>`;
+
+      if (cat.description) {
+        html += `<div class="cat-desc">${escHtml(cat.description)}</div>`;
+      }
+      if (cat.prerequisites) {
+        // Clean up footer noise from prerequisites
+        let prereq = cat.prerequisites.split("\n")[0].trim();
+        if (prereq.length > 200) prereq = prereq.substring(0, 200) + "...";
+        html += `<div class="cat-prereq"><strong>Prerequisites:</strong> ${escHtml(prereq)}</div>`;
+      }
+
+      html += `<button class="btn-scrape" onclick="editCatalogue('${code}')" style="margin-top:.75rem;">Edit</button>`;
+      if (cat.source_url) {
+        html += `<a href="${cat.source_url}" target="_blank" class="btn-scrape" style="margin-top:.75rem;margin-left:.5rem;text-decoration:none;display:inline-block;">Source</a>`;
+      }
+      panel.innerHTML = html;
+      panel.classList.add("visible");
+    } else {
+      panel.innerHTML = `
+        <p class="cat-not-found">No catalogue data found for <strong>${code}</strong>.</p>
+        ${institutionId ? `<button class="btn-scrape" onclick="scrapeCourse('${code}')">Fetch from catalogue</button>` : ''}
+        ${institutionId ? `<button class="btn-scrape" onclick="editCatalogue('${code}')" style="margin-left:.5rem;">Add manually</button>` : ''}
+      `;
+      panel.classList.add("visible");
+    }
+
+    // Scroll panel into view
+    setTimeout(() => panel.scrollIntoView({behavior: 'smooth', block: 'end'}), 100);
+  }
+
+  // ----- Manual edit catalogue entry -----
+  function editCatalogue(code) {
+    const panel = document.getElementById("catalogue-panel");
+    const cat = catalogueData[code] || {};
+
+    panel.innerHTML = `
+      <h3>Edit: ${escHtml(code)}</h3>
+      <div style="display:grid;grid-template-columns:100px 1fr;gap:.4rem .75rem;font-size:.85rem;margin-top:.75rem;">
+        <label>Title</label><input id="cat-title" value="${escHtml(cat.title || "")}" style="padding:.3rem .5rem;border:1px solid #e2e8f0;border-radius:4px;" />
+        <label>Credits</label><input id="cat-credits" type="number" step="0.5" value="${cat.credits || ""}" style="padding:.3rem .5rem;border:1px solid #e2e8f0;border-radius:4px;width:80px;" />
+        <label>Description</label><textarea id="cat-desc" rows="3" style="padding:.3rem .5rem;border:1px solid #e2e8f0;border-radius:4px;font-family:inherit;">${escHtml(cat.description || "")}</textarea>
+        <label>Prerequisites</label><input id="cat-prereq" value="${escHtml((cat.prerequisites || "").split("\\n")[0])}" style="padding:.3rem .5rem;border:1px solid #e2e8f0;border-radius:4px;" />
+        <label>Department</label><input id="cat-dept" value="${escHtml(cat.department || "")}" style="padding:.3rem .5rem;border:1px solid #e2e8f0;border-radius:4px;" />
+        <label>College</label><input id="cat-college" value="${escHtml(cat.college || "")}" style="padding:.3rem .5rem;border:1px solid #e2e8f0;border-radius:4px;" />
+        <label>Level</label><input id="cat-level" value="${escHtml(cat.level || "")}" style="padding:.3rem .5rem;border:1px solid #e2e8f0;border-radius:4px;" />
+      </div>
+      <div style="margin-top:.75rem;">
+        <button class="btn-scrape" onclick="saveCatalogue('${code}', ${cat.id || 0})" style="background:#c6f6d5;color:#276749;border-color:#9ae6b4;">Save</button>
+        <button class="btn-scrape" onclick="showCatalogue('${code}', document.querySelector('.courses-table tr.active'))" style="margin-left:.5rem;">Cancel</button>
+      </div>
+    `;
+    panel.classList.add("visible");
+    panel.scrollIntoView({behavior: 'smooth', block: 'end'});
+  }
+
+  async function saveCatalogue(code, existingId) {
+    const fields = {
+      title: document.getElementById("cat-title").value.trim(),
+      credits: parseFloat(document.getElementById("cat-credits").value) || null,
+      description: document.getElementById("cat-desc").value.trim(),
+      prerequisites: document.getElementById("cat-prereq").value.trim(),
+      department: document.getElementById("cat-dept").value.trim(),
+      college: document.getElementById("cat-college").value.trim(),
+      level: document.getElementById("cat-level").value.trim(),
+    };
+
+    if (existingId) {
+      // Update existing
+      const setClauses = [];
+      for (const [k, v] of Object.entries(fields)) {
+        if (v !== null && v !== "") {
+          setClauses.push(`${k} = '${String(v).replace(/'/g, "''")}'`);
+        }
+      }
+      if (setClauses.length > 0) {
+        await fetch(`${API_BASE}/query`, {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({sql: `UPDATE catalogue_courses SET ${setClauses.join(", ")}, updated_at = NOW() WHERE id = ${existingId}`, admin_key: "setup-2026"})
+        });
+      }
+    } else {
+      // Insert new
+      const prefix = code.match(/^([A-Z]+)/)?.[1] || "";
+      const number = code.match(/(\d+)/)?.[1] || "";
+      await fetch(`${API_BASE}/query`, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({
+          sql: `INSERT INTO catalogue_courses (institution_id, course_code, course_prefix, course_number, title, credits, description, prerequisites, department, college, level) VALUES (${institutionId}, '${code}', '${prefix}', '${number}', '${(fields.title||"").replace(/'/g,"''")}', ${fields.credits||'NULL'}, '${(fields.description||"").replace(/'/g,"''")}', '${(fields.prerequisites||"").replace(/'/g,"''")}', '${(fields.department||"").replace(/'/g,"''")}', '${(fields.college||"").replace(/'/g,"''")}', '${(fields.level||"").replace(/'/g,"''")}')`,
+          admin_key: "setup-2026"
+        })
+      });
+    }
+
+    // Reload
+    const instName = document.querySelector("#institution-info .info-value")?.textContent || "";
+    await loadCatalogueData(instName);
+    showCatalogue(code, document.querySelector(".courses-table tr.active") || document.querySelector(".courses-table tbody tr"));
+  }
+
+  async function scrapeCourse(code) {
+    if (!institutionId) return;
+    const btn = document.querySelector(".btn-scrape");
+    if (btn) { btn.disabled = true; btn.textContent = "Fetching..."; }
+
+    const res = await fetch(`${API_BASE}/catalogue/scrape-course`, {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({institution_id: institutionId, course_code: code})
+    });
+    const data = await res.json();
+
+    if (data.results && data.results[0] && !data.results[0].error) {
+      // Reload catalogue data
+      await loadCatalogueData(document.querySelector("#institution-info .info-value")?.textContent || "");
+      showCatalogue(code, document.querySelector(".courses-table tr.active") || document.querySelector(".courses-table tbody tr"));
+    } else {
+      const panel = document.getElementById("catalogue-panel");
+      panel.innerHTML = `<p class="cat-not-found">Could not fetch catalogue data: ${data.results?.[0]?.error || "Unknown error"}</p>`;
+    }
+  }
+
+  // ----- Grading Legend -----
+  function renderLegend(legend) {
+    document.getElementById("legend-card").style.display = "block";
+    const container = document.getElementById("legend-container");
+    let html = `<table class="legend-table"><thead><tr><th>Symbol</th><th>Meaning</th><th>Points</th></tr></thead><tbody>`;
+    for (const g of legend) {
+      html += `<tr><td><strong>${escHtml(g.symbol || "")}</strong></td><td>${escHtml(g.meaning || "")}</td><td>${escHtml(g.grade_points || "")}</td></tr>`;
+    }
+    html += "</tbody></table>";
+    container.innerHTML = html;
+  }
+
+  // ----- Helpers -----
+  function escHtml(str) {
+    return str.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  }
+
+  // ----- Init -----
+  if (transcriptId) loadTranscript();
+</script>
+</body>
+</html>

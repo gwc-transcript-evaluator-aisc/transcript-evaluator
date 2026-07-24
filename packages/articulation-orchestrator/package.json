@@ -1,0 +1,36 @@
+{
+  "name": "@summer-camp/articulation-orchestrator",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Transcript-to-articulation orchestration API and workflow infrastructure",
+  "scripts": {
+    "build": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "cdk": "cdk",
+    "synth": "cdk synth -c local=true",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@aws-sdk/client-bedrock-runtime": "3.1093.0",
+    "@aws-sdk/client-dynamodb": "3.1093.0",
+    "@aws-sdk/client-lambda": "3.1093.0",
+    "@aws-sdk/client-secrets-manager": "3.1093.0",
+    "@aws-sdk/client-sfn": "3.1093.0",
+    "@aws-sdk/lib-dynamodb": "3.1093.0",
+    "aws-cdk-lib": "2.262.0",
+    "constructs": "10.7.1",
+    "zod": "3.25.76"
+  },
+  "devDependencies": {
+    "@types/aws-lambda": "8.10.145",
+    "@types/node": "22.15.21",
+    "aws-cdk": "2.1132.1",
+    "eslint": "9.26.0",
+    "tsx": "4.19.4",
+    "typescript": "5.8.3",
+    "typescript-eslint": "8.65.0",
+    "vitest": "3.1.3"
+  }
+}

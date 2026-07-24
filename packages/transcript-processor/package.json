@@ -1,0 +1,25 @@
+{
+  "name": "@summer-camp/transcript-processor",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Transcript processing API and infrastructure",
+  "scripts": {
+    "build": "tsc --noEmit",
+    "test": "vitest run",
+    "test:python": "python3 -m unittest discover -s test -p '*_test.py'",
+    "synth": "cdk synth",
+    "cdk": "cdk"
+  },
+  "dependencies": {
+    "aws-cdk-lib": "2.262.0",
+    "constructs": "10.7.1"
+  },
+  "devDependencies": {
+    "@types/node": "22.15.21",
+    "aws-cdk": "2.1132.1",
+    "tsx": "4.19.4",
+    "typescript": "5.8.3",
+    "vitest": "3.1.3"
+  }
+}

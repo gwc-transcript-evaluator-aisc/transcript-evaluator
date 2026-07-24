@@ -73,3 +73,9 @@ npm run cdk deploy -w packages/course-catalog-api
 ## License
 
 MIT
+
+## Articulation Orchestrator prototype access
+
+The orchestrator CDK stack creates a generated shared API key in AWS Secrets Manager and grants `secretsmanager:GetSecretValue` only to its API Lambda. The secret value is deliberately not an output. After deployment, an authorized operator must retrieve the generated secret value from the stack's Secrets Manager secret and provide it to the browser build/runtime as `VITE_ORCHESTRATOR_API_KEY`; also provide `VITE_ORCHESTRATOR_API_BASE_URL` from the `ApiUrl` output. The client sends the key in `x-api-key`.
+
+This is intentionally **not production-safe**: any `VITE_` value is embedded in browser assets, so every browser user can extract the shared key. Use it only for this non-production prototype; replace it with per-user authentication and authorization before production. Do not commit the key, place it in CDK context, or print it in deployment logs. For local CDK stacks, use `-c local=true`; local mode explicitly bypasses API-key verification.

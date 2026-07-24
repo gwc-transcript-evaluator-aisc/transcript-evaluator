@@ -1,0 +1,131 @@
+{
+  "class": "StudentTranscript",
+  "description": "Extracts student personal information and academic course records from university and college transcripts in any format.",
+  "properties": {
+    "student_name": {
+      "type": "string",
+      "inferenceType": "explicit",
+      "instruction": "Full name of the student as it appears on the transcript."
+    },
+    "student_id": {
+      "type": "string",
+      "inferenceType": "explicit",
+      "instruction": "Student ID, student number, or enrollment number on the transcript."
+    },
+    "date_of_birth": {
+      "type": "string",
+      "inferenceType": "explicit",
+      "instruction": "Student date of birth. Return in MM/DD/YYYY format if available."
+    },
+    "email": {
+      "type": "string",
+      "inferenceType": "explicit",
+      "instruction": "Student email address if present on the transcript."
+    },
+    "phone": {
+      "type": "string",
+      "inferenceType": "explicit",
+      "instruction": "Student phone number if present on the transcript."
+    },
+    "address": {
+      "type": "string",
+      "inferenceType": "explicit",
+      "instruction": "Student mailing or home address if present on the transcript."
+    },
+    "institution": {
+      "type": "string",
+      "inferenceType": "explicit",
+      "instruction": "Full name of the college or university that issued the transcript."
+    },
+    "program": {
+      "type": "string",
+      "inferenceType": "explicit",
+      "instruction": "Degree program, e.g. Bachelor of Science, Associate in Arts, Associate in Pre-Nursing DTA/MRP."
+    },
+    "major": {
+      "type": "string",
+      "inferenceType": "explicit",
+      "instruction": "Student declared major or field of study."
+    },
+    "minor": {
+      "type": "string",
+      "inferenceType": "explicit",
+      "instruction": "Student declared minor if present."
+    },
+    "enrollment_date": {
+      "type": "string",
+      "inferenceType": "explicit",
+      "instruction": "Date the student first enrolled at the institution."
+    },
+    "graduation_date": {
+      "type": "string",
+      "inferenceType": "explicit",
+      "instruction": "Degree conferral or graduation date. Also called Confer Date."
+    },
+    "gpa": {
+      "type": "number",
+      "inferenceType": "explicit",
+      "instruction": "Cumulative GPA as a number, e.g. 3.75. Also called Cum GPA, QPR, or overall GPA. Use the final cumulative value."
+    },
+    "total_credits": {
+      "type": "number",
+      "inferenceType": "explicit",
+      "instruction": "Total credits earned across all terms. Also called Cum Totals earned credits or total hours earned."
+    },
+    "courses": {
+      "type": "array",
+      "inferenceType": "explicit",
+      "instruction": "List of every course taken by the student across all terms and semesters. Include transfer courses.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "course_code": {
+            "type": "string",
+            "inferenceType": "explicit",
+            "instruction": "Course code or number, e.g. MATH 151, DHYG124, CS 301."
+          },
+          "course_name": {
+            "type": "string",
+            "inferenceType": "explicit",
+            "instruction": "Full course title, e.g. Calculus, Dental Radiology, Introduction to Psychology."
+          },
+          "credits": {
+            "type": "number",
+            "inferenceType": "explicit",
+            "instruction": "Credit hours earned. Also called units or earned hours."
+          },
+          "grade": {
+            "type": "string",
+            "inferenceType": "explicit",
+            "instruction": "Letter grade received, e.g. A, B+, C-, W, TR for transfer, S for satisfactory."
+          },
+          "grade_points": {
+            "type": "number",
+            "inferenceType": "explicit",
+            "instruction": "Quality points or grade points earned for this course, e.g. 12.00, 16.65."
+          },
+          "semester": {
+            "type": "string",
+            "inferenceType": "explicit",
+            "instruction": "Term when the course was taken, e.g. FALL 2018, SPRING 2007, WINTER 2019."
+          },
+          "year": {
+            "type": "string",
+            "inferenceType": "explicit",
+            "instruction": "Academic year when the course was taken, e.g. 2018, 2022."
+          },
+          "department": {
+            "type": "string",
+            "inferenceType": "explicit",
+            "instruction": "Department code, e.g. MATH, DHYG, ENGL."
+          },
+          "status": {
+            "type": "string",
+            "inferenceType": "explicit",
+            "instruction": "Course status: Completed, Transfer, Withdrawn, or In Progress."
+          }
+        }
+      }
+    }
+  }
+}

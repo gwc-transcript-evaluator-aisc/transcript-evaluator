@@ -1,0 +1,1043 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Transcript Review</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #f0f4f8;
+      color: #1a202c;
+      min-height: 100vh;
+      padding: 1rem;
+    }
+
+    /* Top bar */
+    .top-bar {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      display: flex;
+      flex-direction: column;
+      gap: .5rem;
+      background: #fff;
+      padding: .75rem 1.5rem;
+      border-radius: 0 0 10px 10px;
+      box-shadow: 0 2px 8px rgba(0,0,0,.1);
+      margin-bottom: 1rem;
+    }
+    .top-bar-title {
+      display: flex;
+      align-items: center;
+      gap: .75rem;
+      white-space: nowrap;
+      overflow: hidden;
+      width: 100%;
+    }
+    .top-bar-title h1 {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: #2d3748;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .top-bar-title-right {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+      flex-shrink: 0;
+    }
+    .top-bar-actions {
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+    #lock-info { font-size: .8rem; color: #718096; }
+    #message { font-size: .85rem; font-weight: 500; }
+    .msg-ok  { color: #276749; }
+    .msg-err { color: #9b2c2c; }
+    .top-bar input {
+      padding: .4rem .6rem;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+      font-size: .85rem;
+      width: 140px;
+      transition: border-color .3s, box-shadow .3s;
+    }
+    .top-bar input.shake {
+      border-color: #e53e3e;
+      box-shadow: 0 0 0 3px rgba(229, 62, 62, 0.3);
+      animation: shake 0.4s ease;
+    }
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      20% { transform: translateX(-4px); }
+      40% { transform: translateX(4px); }
+      60% { transform: translateX(-3px); }
+      80% { transform: translateX(3px); }
+    }
+    .top-bar button {
+      padding: .4rem .8rem;
+      border: none;
+      border-radius: 6px;
+      font-size: .8rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background .2s;
+    }
+    .btn-lock    { background: #bee3f8; color: #2b6cb0; }
+    .btn-unlock  { background: #fefcbf; color: #744210; }
+    .btn-verify  { background: #c6f6d5; color: #276749; }
+    .btn-flag    { background: #fed7d7; color: #9b2c2c; }
+    .btn-save    { background: #4299e1; color: #fff; }
+    .btn-checkall { background: #e2e8f0; color: #2d3748; }
+    .top-bar button:hover { opacity: .85; }
+    .review-badge {
+      padding: .25rem .6rem;
+      border-radius: 9999px;
+      font-size: .75rem;
+      font-weight: 600;
+    }
+    .rb-unreviewed    { background: #e2e8f0; color: #4a5568; }
+    .rb-in_review     { background: #bee3f8; color: #2b6cb0; }
+    .rb-verified      { background: #c6f6d5; color: #276749; }
+    .rb-flagged_rerun { background: #fed7d7; color: #9b2c2c; }
+
+    /* Check progress */
+    #check-progress {
+      font-size: .8rem;
+      color: #4a5568;
+      padding: .2rem .6rem;
+      background: #f7fafc;
+      border-radius: 9999px;
+      border: 1px solid #e2e8f0;
+    }
+    #check-progress.all-checked { background: #c6f6d5; color: #276749; border-color: #9ae6b4; }
+
+    /* Two-panel layout */
+    .panels {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      height: calc(100vh - 180px);
+    }
+
+    .panel {
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 1px 6px rgba(0,0,0,.06);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .panel h2 {
+      font-size: 1rem;
+      font-weight: 600;
+      color: #2d3748;
+      margin: 0;
+      padding: .75rem 1.25rem;
+      background: #fff;
+      border-bottom: 1px solid #e2e8f0;
+      flex-shrink: 0;
+    }
+
+    .panel-content {
+      padding: 1.25rem;
+      overflow-y: auto;
+      flex: 1;
+    }
+
+    /* Raw text panel */
+    #raw-text {
+      white-space: pre-wrap;
+      font-family: monospace;
+      font-size: .8rem;
+      color: #4a5568;
+      line-height: 1.5;
+    }
+
+    /* Structured data panel */
+    .field-group { margin-bottom: 1.5rem; }
+    .field-group h3 {
+      font-size: .85rem;
+      font-weight: 600;
+      color: #4a5568;
+      margin-bottom: .5rem;
+    }
+
+    .field-row {
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+      margin-bottom: .4rem;
+    }
+    .field-check {
+      width: 16px;
+      height: 16px;
+      cursor: pointer;
+      accent-color: #38a169;
+      flex-shrink: 0;
+    }
+    .field-label {
+      font-size: .8rem;
+      color: #718096;
+      width: 120px;
+      flex-shrink: 0;
+    }
+    .field-value {
+      font-size: .85rem;
+      padding: .3rem .5rem;
+      border: 1px solid #e2e8f0;
+      border-radius: 4px;
+      flex: 1;
+      background: #f7fafc;
+      min-height: 1.6rem;
+    }
+    .field-value:focus { outline: none; border-color: #4299e1; background: #fff; }
+    .field-value.changed { border-color: #ed8936; background: #fffaf0; }
+
+    /* Checked row styling */
+    .field-row.checked .field-value { background: #f0fff4; border-color: #9ae6b4; }
+    .courses-table tr.checked td { background: #f0fff4; }
+
+    /* Courses table */
+    .courses-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: .78rem;
+      margin-top: .5rem;
+    }
+    .courses-table th {
+      text-align: left;
+      padding: .4rem .5rem;
+      background: #f7fafc;
+      color: #718096;
+      font-weight: 600;
+      border-bottom: 1px solid #e2e8f0;
+      cursor: pointer;
+      user-select: none;
+    }
+    .courses-table th:hover { color: #2d3748; }
+    .courses-table th .sort-arrow { font-size: .65rem; margin-left: .2rem; }
+    .courses-table td {
+      padding: .35rem .5rem;
+      border-bottom: 1px solid #f0f4f8;
+      color: #4a5568;
+    }
+    .courses-table td[contenteditable] { background: #f7fafc; border: 1px solid #e2e8f0; border-radius: 3px; }
+    .courses-table td[contenteditable]:focus { outline: none; border-color: #4299e1; background: #fff; }
+    .courses-table td.changed { border-color: #ed8936; background: #fffaf0; }
+
+    /* Pending delete row */
+    .courses-table tr.pending-delete td {
+      text-decoration: line-through;
+      opacity: 0.5;
+      background: #fff5f5;
+    }
+    .courses-table tr.pending-delete td[contenteditable] {
+      pointer-events: none;
+    }
+
+    .btn-delete-course {
+      background: #fed7d7; border: 1px solid #feb2b2; color: #9b2c2c;
+      cursor: pointer; font-size: .7rem; font-weight: 600;
+      padding: .2rem .4rem; border-radius: 4px;
+    }
+    .btn-delete-course:hover { background: #fc8181; color: #fff; border-color: #fc8181; }
+    .btn-undo-delete {
+      background: none; border: none; color: #4299e1;
+      cursor: pointer; font-size: .75rem; font-weight: 600;
+    }
+    .btn-undo-delete:hover { text-decoration: underline; }
+
+    .btn-add-course {
+      margin-top: .5rem;
+      padding: .3rem .7rem;
+      background: #ebf8ff;
+      color: #2b6cb0;
+      border: 1px solid #bee3f8;
+      border-radius: 5px;
+      font-size: .78rem;
+      cursor: pointer;
+    }
+
+    /* Audit section */
+    .audit-section {
+      margin-top: 1rem;
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 1px 6px rgba(0,0,0,.06);
+      padding: 1.25rem;
+      max-height: 250px;
+      overflow-y: auto;
+    }
+    .audit-section h2 {
+      font-size: .95rem;
+      font-weight: 600;
+      color: #2d3748;
+      margin-bottom: .75rem;
+    }
+    .audit-entry {
+      font-size: .78rem;
+      color: #4a5568;
+      padding: .3rem 0;
+      border-bottom: 1px solid #f0f4f8;
+    }
+    .audit-entry:last-child { border-bottom: none; }
+    .audit-action { font-weight: 600; color: #2b6cb0; }
+    .audit-user   { color: #744210; }
+    .audit-time   { color: #a0aec0; }
+
+    @media (max-width: 900px) {
+      .panels { grid-template-columns: 1fr; height: auto; }
+      .panel { max-height: 50vh; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Top bar -->
+<div class="top-bar">
+  <div class="top-bar-title">
+    <h1 id="page-title">Transcript Review</h1>
+    <span id="review-badge" class="review-badge rb-unreviewed">unreviewed</span>
+    <span id="check-progress">0 / 0 checked</span>
+    <a id="pdf-link" href="#" target="_blank" style="font-size:.8rem;color:#4299e1;text-decoration:none;display:none;">View PDF</a>
+    <div class="top-bar-title-right">
+      <span id="lock-info"></span>
+      <span id="message"></span>
+    </div>
+  </div>
+  <div class="top-bar-actions">
+    <span style="font-size:.85rem;color:#4a5568;font-weight:500;">Evaluator:</span>
+    <input type="text" id="user-name" placeholder="Your name" />
+    <button class="btn-checkall" onclick="checkAll()">Check All</button>
+    <button class="btn-lock" id="btn-lock" onclick="lockTranscript()">Lock</button>
+    <button class="btn-unlock" id="btn-unlock" onclick="unlockTranscript()" style="display:none">Unlock</button>
+    <button class="btn-save" id="btn-save" onclick="saveChanges()">Save Changes</button>
+    <button class="btn-verify" onclick="verifyTranscript()">Verify</button>
+    <button class="btn-flag" onclick="flagTranscript()">Flag Re-run</button>
+  </div>
+</div>
+
+<!-- Two panels -->
+<div class="panels">
+  <!-- Left: raw text -->
+  <div class="panel">
+    <h2>Raw Extracted Text</h2>
+    <div class="panel-content">
+      <div id="raw-text">Loading...</div>
+    </div>
+  </div>
+
+  <!-- Right: structured data -->
+  <div class="panel">
+    <h2>Extracted Data</h2>
+    <div class="panel-content">
+      <div class="field-group">
+        <h3>Student Information</h3>
+        <div id="student-fields"></div>
+      </div>
+
+      <div class="field-group">
+        <h3>Courses (<span id="course-count">0</span>)</h3>
+        <div id="courses-container"></div>
+        <button class="btn-add-course" onclick="addCourse()">+ Add Course</button>
+      </div>
+
+      <div class="field-group" id="legend-group" style="display:none;">
+        <h3>Grading Legend</h3>
+        <div id="legend-container"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Audit log -->
+<div class="audit-section">
+  <h2>Audit History</h2>
+  <div id="audit-log">Loading...</div>
+</div>
+
+<script>
+  const API_BASE = "https://krm8dkd195.execute-api.us-west-2.amazonaws.com";
+
+  // Get transcript ID from URL: review.html?id=9
+  const params = new URLSearchParams(window.location.search);
+  const transcriptId = params.get("id");
+
+  if (!transcriptId) {
+    document.body.innerHTML = '<p style="padding:2rem;color:#e53e3e;">Missing ?id= parameter in URL.</p>';
+  }
+
+  let studentId = null;
+  let originalStudent = {};
+  let originalCourses = {};
+
+  // ----- Load data -----
+  async function loadTranscript() {
+    const res = await fetch(`${API_BASE}/transcript/${transcriptId}`);
+    const data = await res.json();
+
+    document.getElementById("page-title").textContent =
+      `Review: ${data.filename} (#${data.transcript_id})`;
+
+    // PDF link
+    if (data.pdf_url) {
+      const pdfLink = document.getElementById("pdf-link");
+      pdfLink.href = data.pdf_url;
+      pdfLink.style.display = "inline";
+    }
+
+    // Review badge
+    const badge = document.getElementById("review-badge");
+    const rs = data.review_status || "unreviewed";
+    badge.textContent = rs.replace("_", " ");
+    badge.className = `review-badge rb-${rs.toLowerCase()}`;
+
+    if (!data.student) {
+      document.getElementById("raw-text").textContent = "No data extracted yet.";
+      return;
+    }
+
+    const s = data.student;
+    studentId = s.id;
+
+    // Raw text
+    document.getElementById("raw-text").textContent = s.raw_text || "(no raw text available)";
+
+    // Student fields — only show checkboxes for populated fields
+    const studentFields = [
+      "full_name", "student_id", "date_of_birth", "email", "phone",
+      "address", "institution", "institution_address", "institution_website",
+      "institution_phone", "program", "major", "minor",
+      "enrollment_date", "graduation_date", "gpa", "total_credits"
+    ];
+    const container = document.getElementById("student-fields");
+    container.innerHTML = "";
+    for (const field of studentFields) {
+      const value = s[field] != null ? String(s[field]) : "";
+      originalStudent[field] = value;
+      const hasValue = value.trim() !== "";
+      container.innerHTML += `
+        <div class="field-row" data-checkable="${hasValue}">
+          ${hasValue
+            ? `<input type="checkbox" class="field-check" onchange="onCheckChanged(this)" />`
+            : `<span style="width:16px;flex-shrink:0;"></span>`}
+          <span class="field-label">${field.replace(/_/g, " ")}</span>
+          <div class="field-value" contenteditable="true" data-field="${field}"
+               oninput="markChanged(this, '${field}', 'student')">${escHtml(value)}</div>
+        </div>`;
+    }
+
+    // Courses
+    renderCourses(s.courses || []);
+
+    // Grading legend
+    if (data.grading_legend && data.grading_legend.length > 0) {
+      renderLegend(data.grading_legend);
+    }
+
+    // Update check progress
+    updateCheckProgress();
+
+    // Get student ID for API calls
+    if (!studentId) {
+      const qRes = await fetch(`${API_BASE}/query`, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({sql: `SELECT id FROM students WHERE transcript_id = ${transcriptId}`})
+      });
+      const qData = await qRes.json();
+      if (qData.rows && qData.rows.length > 0) studentId = qData.rows[0].id;
+    }
+  }
+
+  let currentCourses = [];
+  let sortColumn = null;
+  let sortAsc = true;
+
+  function renderLegend(legend) {
+    const group = document.getElementById("legend-group");
+    const container = document.getElementById("legend-container");
+    group.style.display = "block";
+
+    let html = `<table class="courses-table" style="font-size:.78rem;">
+      <thead><tr><th style="cursor:default;">Symbol</th><th style="cursor:default;">Meaning</th><th style="cursor:default;">Points</th></tr></thead><tbody>`;
+    for (const g of legend) {
+      html += `<tr>
+        <td><strong>${escHtml(g.symbol || "")}</strong></td>
+        <td>${escHtml(g.meaning || "")}</td>
+        <td>${escHtml(g.grade_points || "")}</td>
+      </tr>`;
+    }
+    html += "</tbody></table>";
+    container.innerHTML = html;
+  }
+
+  function renderCourses(courses) {
+    currentCourses = courses;
+    const container = document.getElementById("courses-container");
+    document.getElementById("course-count").textContent = courses.length;
+
+    let html = `<table class="courses-table">
+      <thead><tr>
+        <th style="width:20px;cursor:default;"><input type="checkbox" class="field-check" id="check-all-courses" onchange="toggleAllCourses(this)" title="Check/uncheck all courses" /></th>
+        <th onclick="sortCourses('course_code')">Code<span class="sort-arrow">${sortArrow('course_code')}</span></th>
+        <th onclick="sortCourses('course_name')">Name<span class="sort-arrow">${sortArrow('course_name')}</span></th>
+        <th onclick="sortCourses('credits')">Credits<span class="sort-arrow">${sortArrow('credits')}</span></th>
+        <th onclick="sortCourses('grade')">Grade<span class="sort-arrow">${sortArrow('grade')}</span></th>
+        <th onclick="sortCourses('term')">Term<span class="sort-arrow">${sortArrow('term')}</span></th>
+        <th style="cursor:default;"></th>
+      </tr></thead><tbody>`;
+
+    for (let i = 0; i < courses.length; i++) {
+      const c = courses[i];
+      originalCourses[i] = {...c};
+      html += `<tr data-index="${i}" data-course-id="${c.id || ''}">
+        <td><input type="checkbox" class="field-check course-check" onchange="onCheckChanged(this)" /></td>
+        <td contenteditable="true" data-field="course_code" oninput="markChanged(this,'course_code','course')">${escHtml(c.course_code || "")}</td>
+        <td contenteditable="true" data-field="course_name" oninput="markChanged(this,'course_name','course')">${escHtml(c.course_name || "")}</td>
+        <td contenteditable="true" data-field="credits" oninput="markChanged(this,'credits','course')">${c.credits != null ? c.credits : ""}</td>
+        <td contenteditable="true" data-field="grade" oninput="markChanged(this,'grade','course')">${escHtml(c.grade || "")}</td>
+        <td contenteditable="true" data-field="term" oninput="markChanged(this,'term','course')">${escHtml(c.term || "")}</td>
+        <td><button class="btn-delete-course" onclick="deleteCourse(this, ${c.id || 0})">DEL</button></td>
+      </tr>`;
+    }
+    html += "</tbody></table>";
+    container.innerHTML = html;
+  }
+
+  // ----- Checkbox logic -----
+  function onCheckChanged(checkbox) {
+    const row = checkbox.closest("tr") || checkbox.closest(".field-row");
+    if (row) {
+      if (checkbox.checked) {
+        row.classList.add("checked");
+        // Lock editable fields in this row
+        row.querySelectorAll("[contenteditable]").forEach(el => {
+          el.contentEditable = "false";
+          el.style.opacity = "0.7";
+          el.style.cursor = "not-allowed";
+        });
+      } else {
+        row.classList.remove("checked");
+        // Unlock editable fields
+        row.querySelectorAll("[contenteditable]").forEach(el => {
+          el.contentEditable = "true";
+          el.style.opacity = "";
+          el.style.cursor = "";
+        });
+      }
+    }
+    updateCheckProgress();
+  }
+
+  function toggleAllCourses(headerCheckbox) {
+    const checks = document.querySelectorAll(".course-check");
+    checks.forEach(cb => {
+      cb.checked = headerCheckbox.checked;
+      const row = cb.closest("tr");
+      if (row) {
+        if (headerCheckbox.checked) {
+          row.classList.add("checked");
+          row.querySelectorAll("[contenteditable]").forEach(el => {
+            el.contentEditable = "false";
+            el.style.opacity = "0.7";
+            el.style.cursor = "not-allowed";
+          });
+        } else {
+          row.classList.remove("checked");
+          row.querySelectorAll("[contenteditable]").forEach(el => {
+            el.contentEditable = "true";
+            el.style.opacity = "";
+            el.style.cursor = "";
+          });
+        }
+      }
+    });
+    updateCheckProgress();
+  }
+
+  function checkAll() {
+    const allChecks = document.querySelectorAll(".field-check");
+    allChecks.forEach(cb => {
+      cb.checked = true;
+      const row = cb.closest("tr") || cb.closest(".field-row");
+      if (row) {
+        row.classList.add("checked");
+        row.querySelectorAll("[contenteditable]").forEach(el => {
+          el.contentEditable = "false";
+          el.style.opacity = "0.7";
+          el.style.cursor = "not-allowed";
+        });
+      }
+    });
+    updateCheckProgress();
+  }
+
+  function updateCheckProgress() {
+    const allCheckable = document.querySelectorAll('.field-row[data-checkable="true"] .field-check, .course-check');
+    const checked = document.querySelectorAll('.field-row[data-checkable="true"] .field-check:checked, .course-check:checked');
+    const total = allCheckable.length;
+    const done = checked.length;
+
+    const el = document.getElementById("check-progress");
+    el.textContent = `${done} / ${total} checked`;
+    if (total > 0 && done === total) {
+      el.classList.add("all-checked");
+    } else {
+      el.classList.remove("all-checked");
+    }
+  }
+
+  function allItemsChecked() {
+    const allCheckable = document.querySelectorAll('.field-row[data-checkable="true"] .field-check, .course-check');
+    const checked = document.querySelectorAll('.field-row[data-checkable="true"] .field-check:checked, .course-check:checked');
+    return allCheckable.length > 0 && allCheckable.length === checked.length;
+  }
+
+  function sortArrow(col) {
+    if (sortColumn !== col) return '';
+    return sortAsc ? '▲' : '▼';
+  }
+
+  function sortCourses(column) {
+    if (sortColumn === column) {
+      sortAsc = !sortAsc;
+    } else {
+      sortColumn = column;
+      sortAsc = true;
+    }
+
+    currentCourses.sort((a, b) => {
+      let valA = a[column] ?? '';
+      let valB = b[column] ?? '';
+
+      // Numeric sort for credits
+      if (column === 'credits') {
+        valA = parseFloat(valA) || 0;
+        valB = parseFloat(valB) || 0;
+      } else {
+        valA = String(valA).toLowerCase();
+        valB = String(valB).toLowerCase();
+      }
+
+      if (valA < valB) return sortAsc ? -1 : 1;
+      if (valA > valB) return sortAsc ? 1 : -1;
+      return 0;
+    });
+
+    renderCourses(currentCourses);
+    updateCheckProgress();
+  }
+
+  function markChanged(el, field, type) {
+    el.classList.add("changed");
+  }
+
+  function escHtml(str) {
+    return str.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  }
+
+  function parseTerm(raw) {
+    // Parse term string into {season, year}
+    if (!raw) return {season: null, year: null};
+    const upper = raw.toUpperCase().trim();
+    let season = null, year = null;
+
+    // Extract year (2000-2099)
+    const yearMatch = upper.match(/\b(20\d{2})\b/);
+    if (yearMatch) year = yearMatch[1];
+
+    // Extract season
+    if (upper.includes("FALL")) season = "FALL";
+    else if (upper.includes("SPRING")) season = "SPRING";
+    else if (upper.includes("SUMMER")) season = "SUMMER";
+    else if (upper.includes("WINTER")) season = "WINTER";
+    else if (/QUARTER\s*1|QTR\s*1|Q1/.test(upper)) season = "QUARTER 1";
+    else if (/QUARTER\s*2|QTR\s*2|Q2/.test(upper)) season = "QUARTER 2";
+    else if (/QUARTER\s*3|QTR\s*3|Q3/.test(upper)) season = "QUARTER 3";
+    else if (/QUARTER\s*4|QTR\s*4|Q4/.test(upper)) season = "QUARTER 4";
+    else if (/TERM\s*1/.test(upper)) season = "TERM 1";
+    else if (/TERM\s*2/.test(upper)) season = "TERM 2";
+    else if (/TERM\s*3/.test(upper)) season = "TERM 3";
+    else if (/TERM\s*4/.test(upper)) season = "TERM 4";
+
+    return {season, year};
+  }
+
+  // ----- Save changes -----
+  async function saveChanges() {
+    const userName = requireName();
+    if (!userName) return;
+
+    let saved = 0;
+
+    // Save student fields
+    const changedFields = {};
+    document.querySelectorAll("#student-fields .field-value.changed").forEach(el => {
+      const field = el.dataset.field;
+      let value = el.textContent.trim();
+      if (field === "gpa" || field === "total_credits") {
+        value = value === "" ? null : parseFloat(value);
+      } else {
+        value = value === "" ? null : value;
+      }
+      changedFields[field] = value;
+    });
+
+    if (Object.keys(changedFields).length > 0 && studentId) {
+      console.log("Saving student fields:", changedFields);
+      const res = await fetch(`${API_BASE}/student/${studentId}`, {
+        method: "PUT",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({user_name: userName, fields: changedFields})
+      });
+      const data = await res.json();
+      if (!res.ok) { showMsg(data.error, true); return; }
+      saved++;
+      document.querySelectorAll("#student-fields .field-value.changed").forEach(el => el.classList.remove("changed"));
+    }
+
+    // Save course changes (existing courses)
+    const changedCells = document.querySelectorAll(".courses-table td.changed");
+    const courseUpdates = {};
+    changedCells.forEach(td => {
+      const tr = td.closest("tr");
+      const courseId = tr.dataset.courseId;
+      if (!courseId || tr.dataset.isNew === "true") return;  // skip new rows
+      if (!courseUpdates[courseId]) courseUpdates[courseId] = {};
+      let value = td.textContent.trim();
+      const field = td.dataset.field;
+      if (field === "credits" || field === "grade_points") {
+        value = value === "" ? null : parseFloat(value);
+      } else {
+        value = value === "" ? null : value;
+      }
+      courseUpdates[courseId][field] = value;
+    });
+
+    for (const [courseId, fields] of Object.entries(courseUpdates)) {
+      console.log(`Updating course #${courseId}:`, fields);
+      const res = await fetch(`${API_BASE}/course/${courseId}`, {
+        method: "PUT",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({user_name: userName, fields})
+      });
+      const data = await res.json();
+      if (!res.ok) { showMsg(data.error, true); return; }
+      saved++;
+    }
+    changedCells.forEach(td => {
+      const tr = td.closest("tr");
+      if (tr.dataset.isNew !== "true") td.classList.remove("changed");
+    });
+
+    // Save new course rows
+    const newRows = document.querySelectorAll(".courses-table tr[data-is-new='true']");
+    for (const tr of newRows) {
+      const course = {};
+      tr.querySelectorAll("td[data-field]").forEach(td => {
+        let value = td.textContent.trim();
+        const field = td.dataset.field;
+        if (field === "credits") value = value === "" ? null : parseFloat(value);
+        if (value !== null && value !== "") course[field] = value;
+      });
+
+      // Skip completely empty rows
+      if (!course.course_code && !course.course_name && !course.grade) continue;
+
+      // Parse term into term_season and term_year if recognizable
+      if (course.term) {
+        const parsed = parseTerm(course.term);
+        if (parsed.season) course.term_season = parsed.season;
+        if (parsed.year) course.term_year = parsed.year;
+      }
+
+      console.log("Adding new course:", course);
+      const res = await fetch(`${API_BASE}/student/${studentId}/courses`, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({user_name: userName, course})
+      });
+      const data = await res.json();
+      if (!res.ok) { showMsg(data.error, true); return; }
+
+      // Update the row to mark it as saved
+      tr.dataset.courseId = data.course_id;
+      tr.dataset.isNew = "false";
+      tr.querySelectorAll("td.changed").forEach(td => td.classList.remove("changed"));
+      // Update delete button with real ID
+      const delBtn = tr.querySelector(".btn-delete-course");
+      if (delBtn) delBtn.setAttribute("onclick", `deleteCourse(this, ${data.course_id})`);
+      saved++;
+    }
+
+    // Delete courses flagged for deletion
+    const pendingDeletes = document.querySelectorAll(".courses-table tr[data-pending-delete='true']");
+    for (const tr of pendingDeletes) {
+      const courseId = tr.dataset.courseId;
+      if (!courseId) continue;
+
+      console.log(`Deleting course #${courseId}`);
+      const res = await fetch(`${API_BASE}/course/${courseId}`, {
+        method: "DELETE",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({user_name: userName})
+      });
+
+      if (!res.ok) {
+        try {
+          const data = await res.json();
+          showMsg(data.error || "Delete failed.", true);
+        } catch(e) {
+          showMsg(`Delete failed (HTTP ${res.status}).`, true);
+        }
+        return;
+      }
+
+      tr.remove();
+      saved++;
+    }
+
+    if (saved > 0) {
+      showMsg(`Saved ${saved} update(s).`, false);
+      loadAudit();
+    } else {
+      showMsg("No changes to save.", false);
+    }
+  }
+
+  // ----- Delete course (flag for pending deletion) -----
+  function deleteCourse(btn, courseId) {
+    const tr = btn.closest("tr");
+
+    // If it's a new unsaved row, just remove it from DOM
+    if (!courseId || tr.dataset.isNew === "true") {
+      tr.remove();
+      updateCheckProgress();
+      return;
+    }
+
+    // Flag as pending delete
+    tr.classList.add("pending-delete");
+    tr.dataset.pendingDelete = "true";
+
+    // Swap delete button for undo button
+    const td = btn.closest("td");
+    td.innerHTML = `<button class="btn-undo-delete" onclick="undoDelete(this, ${courseId})">undo</button>`;
+
+    showMsg("Course marked for deletion. Click 'Save Changes' to confirm.", false);
+    updateCheckProgress();
+  }
+
+  function undoDelete(btn, courseId) {
+    const tr = btn.closest("tr");
+    tr.classList.remove("pending-delete");
+    tr.dataset.pendingDelete = "";
+
+    // Swap undo button back to delete button
+    const td = btn.closest("td");
+    td.innerHTML = `<button class="btn-delete-course" onclick="deleteCourse(this, ${courseId})">DEL</button>`;
+
+    showMsg("Deletion undone.", false);
+    updateCheckProgress();
+  }
+
+  // ----- Add course (inline empty row) -----
+  function addCourse() {
+    const tbody = document.querySelector(".courses-table tbody");
+    if (!tbody) return;
+
+    const newRow = document.createElement("tr");
+    newRow.dataset.courseId = "";  // empty = new course, not yet saved
+    newRow.dataset.isNew = "true";
+    newRow.innerHTML = `
+      <td><input type="checkbox" class="field-check course-check" onchange="onCheckChanged(this)" /></td>
+      <td contenteditable="true" data-field="course_code" class="changed" oninput="markChanged(this,'course_code','course')"></td>
+      <td contenteditable="true" data-field="course_name" class="changed" oninput="markChanged(this,'course_name','course')"></td>
+      <td contenteditable="true" data-field="credits" class="changed" oninput="markChanged(this,'credits','course')"></td>
+      <td contenteditable="true" data-field="grade" class="changed" oninput="markChanged(this,'grade','course')"></td>
+      <td contenteditable="true" data-field="term" class="changed" oninput="markChanged(this,'term','course')"></td>
+      <td><button class="btn-delete-course" onclick="deleteCourse(this, 0)">DEL</button></td>
+    `;
+    tbody.appendChild(newRow);
+    // Focus the first cell
+    newRow.querySelector("td[data-field='course_code']").focus();
+    updateCheckProgress();
+  }
+
+  // ----- Review actions -----
+  async function lockTranscript() {
+    const userName = requireName();
+    if (!userName) return;
+
+    const res = await fetch(`${API_BASE}/review/lock/${transcriptId}`, {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({user_name: userName})
+    });
+    const data = await res.json();
+    if (!res.ok) { showMsg(data.error, true); return; }
+
+    showMsg(data.message, false);
+    document.getElementById("btn-lock").style.display = "none";
+    document.getElementById("btn-unlock").style.display = "inline-block";
+    document.getElementById("lock-info").textContent = `Locked by ${userName}`;
+    updateBadge("in_review");
+  }
+
+  async function unlockTranscript() {
+    const userName = requireName();
+    if (!userName) return;
+
+    const res = await fetch(`${API_BASE}/review/unlock/${transcriptId}`, {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({user_name: userName})
+    });
+    const data = await res.json();
+    if (!res.ok) { showMsg(data.error, true); return; }
+
+    showMsg(data.message, false);
+    document.getElementById("btn-lock").style.display = "inline-block";
+    document.getElementById("btn-unlock").style.display = "none";
+    document.getElementById("lock-info").textContent = "";
+    updateBadge("unreviewed");
+  }
+
+  async function verifyTranscript() {
+    const userName = requireName();
+    if (!userName) return;
+
+    // Require all items to be checked before verifying
+    if (!allItemsChecked()) {
+      showMsg("All items must be checked before verifying.", true);
+      return;
+    }
+
+    const res = await fetch(`${API_BASE}/review/verify/${transcriptId}`, {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({user_name: userName})
+    });
+    const data = await res.json();
+    if (!res.ok) { showMsg(data.error, true); return; }
+
+    showMsg(data.message, false);
+    updateBadge("verified");
+    loadAudit();
+  }
+
+  async function flagTranscript() {
+    const userName = requireName();
+    if (!userName) return;
+
+    if (!confirm("Flag this transcript for BDA re-processing?")) return;
+
+    const res = await fetch(`${API_BASE}/review/flag/${transcriptId}`, {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({user_name: userName})
+    });
+    const data = await res.json();
+    if (!res.ok) { showMsg(data.error, true); return; }
+
+    showMsg(data.message, false);
+    updateBadge("flagged_rerun");
+    loadAudit();
+  }
+
+  // ----- Audit log -----
+  async function loadAudit() {
+    const res = await fetch(`${API_BASE}/audit/${transcriptId}`);
+    const data = await res.json();
+    const container = document.getElementById("audit-log");
+
+    if (!data.entries || data.entries.length === 0) {
+      container.innerHTML = '<span style="color:#a0aec0;font-size:.8rem;">No history yet.</span>';
+      return;
+    }
+
+    container.innerHTML = data.entries.map(e => {
+      let detail = "";
+      if (e.action === "course_added" && e.new_value) {
+        try {
+          const course = JSON.parse(e.new_value);
+          const parts = [];
+          if (course.course_code) parts.push(course.course_code);
+          if (course.course_name) parts.push(course.course_name);
+          if (course.grade) parts.push(`grade: ${course.grade}`);
+          if (course.term) parts.push(course.term);
+          detail = ` — added: ${parts.join(', ')}`;
+        } catch(ex) { detail = ` — ${e.new_value}`; }
+      } else if (e.action === "course_deleted" && e.old_value) {
+        try {
+          const course = JSON.parse(e.old_value);
+          const parts = [];
+          if (course.course_code) parts.push(course.course_code);
+          if (course.course_name) parts.push(course.course_name);
+          if (course.grade) parts.push(`grade: ${course.grade}`);
+          if (course.term) parts.push(course.term);
+          detail = ` — removed: ${parts.join(', ')}`;
+        } catch(ex) { detail = ` — ${e.old_value}`; }
+      } else if (e.field_name) {
+        detail = ` ${e.field_name}: "${e.old_value || ""}" → "${e.new_value || ""}"`;
+      }
+      const time = new Date(e.created_at).toLocaleString();
+      return `<div class="audit-entry">
+        <span class="audit-action">${e.action}</span>
+        ${detail}
+        — <span class="audit-user">${e.user_name}</span>
+        <span class="audit-time">${time}</span>
+      </div>`;
+    }).join("");
+  }
+
+  // ----- Helpers -----
+  function showMsg(text, isError) {
+    const el = document.getElementById("message");
+    el.textContent = text;
+    el.className = isError ? "msg-err" : "msg-ok";
+    setTimeout(() => { el.textContent = ""; }, 5000);
+  }
+
+  function requireName() {
+    const input = document.getElementById("user-name");
+    const name = input.value.trim();
+    if (name) return name;
+
+    // Flash the input
+    input.classList.add("shake");
+    input.placeholder = "Enter your name!";
+    input.focus();
+    showMsg("Enter your name to continue.", true);
+    setTimeout(() => {
+      input.classList.remove("shake");
+      input.placeholder = "Your name";
+    }, 1500);
+    return null;
+  }
+
+  function updateBadge(status) {
+    const badge = document.getElementById("review-badge");
+    badge.textContent = status.replace("_", " ");
+    badge.className = `review-badge rb-${status}`;
+  }
+
+  // ----- Init -----
+  if (transcriptId) {
+    loadTranscript();
+    loadAudit();
+  }
+</script>
+</body>
+</html>
