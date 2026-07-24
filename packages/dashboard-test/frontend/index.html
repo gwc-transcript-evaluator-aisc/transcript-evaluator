@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Articulation Evaluator (test dashboard)</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="shell">
+    <header class="hero">
+      <p class="eyebrow">Internal test tool</p>
+      <h1>Articulation evaluator dashboard</h1>
+      <p class="lede">Feed in a home course and a transfer course to run an AI-assisted articulation evaluation against the catalog database. Temporary testing tool -- no auth.</p>
+    </header>
+
+    <section class="panel">
+      <form id="evaluate-form" class="grid-form">
+        <fieldset>
+          <legend>Home course</legend>
+          <label>Institution
+            <input id="home-institution" type="text" placeholder="e.g. Example College" required>
+          </label>
+          <label>Academic year
+            <input id="home-year" type="text" placeholder="e.g. 2025-2026" required>
+          </label>
+          <label>Course code
+            <input id="home-course" type="text" placeholder="e.g. ACCT 101" required>
+          </label>
+        </fieldset>
+
+        <fieldset>
+          <legend>Transfer course</legend>
+          <label>Institution
+            <input id="transfer-institution" type="text" placeholder="e.g. Transfer University" required>
+          </label>
+          <label>Academic year
+            <input id="transfer-year" type="text" placeholder="e.g. 2024-2025" required>
+          </label>
+          <label>Course code
+            <input id="transfer-course" type="text" placeholder="e.g. ACC& 101" required>
+          </label>
+        </fieldset>
+
+        <button class="primary-button" id="submit-button" type="submit">Evaluate</button>
+      </form>
+    </section>
+
+    <section class="panel" id="result-panel" hidden>
+      <h2 id="result-title"></h2>
+      <div id="result-body"></div>
+    </section>
+
+    <p class="error" id="error" role="alert" hidden></p>
+  </main>
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

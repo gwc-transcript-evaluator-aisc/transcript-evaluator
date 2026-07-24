@@ -138,21 +138,11 @@ export class CourseCatalogApiStack extends Stack {
       runtime: lambda.Runtime.NODEJS_22_X,
       memorySize: overrides.memorySize ?? 512,
       timeout: overrides.timeout ?? Duration.seconds(30),
-      depsLockFilePath: path.join(currentDirectory, '..', 'package-lock.json'),
       environment: env,
       bundling: {
         format: nodejs.OutputFormat.ESM,
         minify: true,
         sourceMap: true,
-        nodeModules: [
-          '@aws-sdk/client-bedrock-data-automation-runtime',
-          '@aws-sdk/client-dynamodb',
-          '@aws-sdk/client-s3',
-          '@aws-sdk/client-sfn',
-          '@aws-sdk/lib-dynamodb',
-          '@aws-sdk/s3-request-presigner',
-          'pdf-lib',
-        ],
       },
     });
 
@@ -175,20 +165,11 @@ export class CourseCatalogApiStack extends Stack {
       runtime: lambda.Runtime.NODEJS_22_X,
       memorySize: overrides.memorySize ?? 512,
       timeout: overrides.timeout ?? Duration.seconds(30),
-      depsLockFilePath: path.join(currentDirectory, '..', 'package-lock.json'),
       environment: env,
       bundling: {
         format: nodejs.OutputFormat.ESM,
         minify: true,
         sourceMap: true,
-        nodeModules: [
-          '@aws-sdk/client-bedrock-data-automation-runtime',
-          '@aws-sdk/client-dynamodb',
-          '@aws-sdk/client-s3',
-          '@aws-sdk/client-sfn',
-          '@aws-sdk/lib-dynamodb',
-          'pdf-lib',
-        ],
       },
     });
 
@@ -333,6 +314,11 @@ export class CourseCatalogApiStack extends Stack {
     new CfnOutput(this, 'ApiUrl', { value: api.apiEndpoint });
     new CfnOutput(this, 'WebsiteUrl', { value: websiteBucket.bucketWebsiteUrl });
     new CfnOutput(this, 'WebsiteBucketName', { value: websiteBucket.bucketName });
+    // Exported so other stacks (e.g. articulation-evaluator) can do read-only
+    // cross-stack lookups against this table via Fn.importValue + Table.fromTableArn,
+    // without this stack needing to know about them.
+    new CfnOutput(this, 'CatalogTableArn', { value: catalog.tableArn, exportName: 'CourseCatalogApiStack-CatalogTableArn' });
+    new CfnOutput(this, 'CatalogTableName', { value: catalog.tableName, exportName: 'CourseCatalogApiStack-CatalogTableName' });
 
     new s3deploy.BucketDeployment(this, 'DeployFrontend', {
       sources: [

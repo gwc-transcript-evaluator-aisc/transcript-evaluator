@@ -1,0 +1,6 @@
+{
+  "app": "npx tsx bin/articulation-evaluator.ts",
+  "context": {
+    "@aws-cdk/aws-apigateway:usagePlanKeyOrderInsensitiveId": true
+  }
+}
