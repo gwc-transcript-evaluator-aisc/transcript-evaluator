@@ -1,15 +1,22 @@
 import { useEffect, useMemo, useState } from "react";
-import { ChevronDown, ChevronRight, LoaderCircle, Search } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { ArrowRight, LoaderCircle, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Separator } from "@/components/ui/separator";
+import { StudentInformationCard } from "@/components/StudentInformationCard";
+import { RequirementsCard } from "@/components/RequirementsCard";
+import { CourseComparisonWorkspace, type EvaluatorDecision } from "@/components/CourseComparisonWorkspace";
+import { SourceMaterialCard } from "@/components/SourceMaterialCard";
+import { ErrorSummaryCard } from "@/components/ErrorSummaryCard";
+import { EvaluatorNotes } from "@/components/EvaluatorNotes";
+import { FinalDecisionCard, type FinalDecision } from "@/components/FinalDecisionCard";
+import { GenerateReportButton } from "@/components/GenerateReportButton";
 import { useRunResult } from "@/hooks/useRunResult";
 import { useStudentDirectory } from "@/hooks/useStudentDirectory";
 import { useStudentResults } from "@/hooks/useStudentResults";
-import type { ArticulationResultDto, CatalogResolutionDto, PairResultDto, RequiredCourseResultDto, StudentDirectorySummaryDto } from "@/lib/api/orchestratorTypes";
-
-type BadgeVariant = "success" | "warning" | "error" | "info" | "secondary";
+import { mapArticulationResult } from "@/lib/mapResult";
+import type { ArticulationResultDto, StudentDirectorySummaryDto } from "@/lib/api/orchestratorTypes";
 
 function runIdFromLocation(): string | null {
   const queryIndex = window.location.hash.indexOf("?");
@@ -17,29 +24,14 @@ function runIdFromLocation(): string | null {
   return new URLSearchParams(window.location.hash.slice(queryIndex + 1)).get("runId");
 }
 
-function matchingVariant(outcome: RequiredCourseResultDto["matchingOutcome"]): BadgeVariant {
-  return outcome === "matched" ? "success" : outcome === "unmatched" ? "secondary" : "error";
-}
-
-function pairVariant(outcome: PairResultDto["outcome"]): BadgeVariant {
-  return outcome === "evaluated" ? "success" : outcome === "unresolved" ? "warning" : "error";
-}
-
-function resolutionLabel(resolution: CatalogResolutionDto): string {
-  if (resolution.kind === "unresolved") return `Unresolved: ${resolution.message}`;
-  return `${resolution.resolved.institution} (${resolution.resolved.academicYear}) · ${resolution.method}`;
-}
-
-function resultLabel(result: ArticulationResultDto): string {
-  return `${new Date(result.createdAt).toLocaleString()} · ${result.degreeProgramId}`;
-}
-
-function StudentPicker({ students, selectedStudentKey, onSelect }: {
+/** Real student search that mirrors the concept's StudentSearch look but selects from the live directory. */
+function StudentSearch({ students, selectedStudentKey, onSelect }: {
   students: StudentDirectorySummaryDto[];
   selectedStudentKey: string | null;
   onSelect: (studentKey: string) => void;
 }) {
   const [query, setQuery] = useState("");
+  const [open, setOpen] = useState(false);
   const matches = useMemo(() => {
     const normalized = query.trim().toLowerCase();
     if (!normalized) return students;
@@ -47,61 +39,48 @@ function StudentPicker({ students, selectedStudentKey, onSelect }: {
       || student.externalStudentId?.toLowerCase().includes(normalized)
       || student.studentKey.toLowerCase().includes(normalized));
   }, [query, students]);
+  const selected = students.find((student) => student.studentKey === selectedStudentKey);
 
-  return <div className="space-y-3">
+  return (
     <div className="relative">
       <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-      <Input aria-label="Search students" className="pl-9" onChange={(event) => setQuery(event.target.value)} placeholder="Search students" value={query} />
+      <Input
+        aria-label="Search students"
+        className="pl-9"
+        placeholder={selected ? selected.displayName : "Search students…"}
+        value={query}
+        onChange={(event) => { setQuery(event.target.value); setOpen(true); }}
+        onFocus={() => setOpen(true)}
+        onBlur={() => window.setTimeout(() => setOpen(false), 150)}
+      />
+      {open && matches.length > 0 && (
+        <div className="absolute z-20 mt-1 max-h-72 w-full overflow-auto rounded-md border bg-popover shadow-md" aria-label="Student directory">
+          {matches.map((student) => (
+            <button
+              key={student.studentKey}
+              type="button"
+              onMouseDown={(event) => { event.preventDefault(); onSelect(student.studentKey); setQuery(""); setOpen(false); }}
+              className={`w-full p-2.5 text-left text-sm transition-colors hover:bg-accent ${student.studentKey === selectedStudentKey ? "bg-primary/10" : ""}`}
+            >
+              <span className="block font-semibold">{student.displayName}</span>
+              <span className="block text-xs text-muted-foreground">{student.externalStudentId ?? student.studentKey} · {student.resultCount} result{student.resultCount === 1 ? "" : "s"}</span>
+            </button>
+          ))}
+        </div>
+      )}
     </div>
-    <div className="max-h-80 space-y-1 overflow-auto" aria-label="Student directory">
-      {matches.map((student) => <button key={student.studentKey} type="button" onClick={() => onSelect(student.studentKey)} className={`w-full rounded-md p-3 text-left text-sm hover:bg-slate-100 ${student.studentKey === selectedStudentKey ? "bg-slate-100 ring-1 ring-primary" : ""}`}>
-        <span className="block font-semibold">{student.displayName}</span>
-        <span className="block text-xs text-muted-foreground">{student.externalStudentId ?? student.studentKey} · {student.resultCount} result{student.resultCount === 1 ? "" : "s"}</span>
-      </button>)}
-      {query && matches.length === 0 && <p className="p-3 text-sm text-muted-foreground">No students match this search.</p>}
-    </div>
-  </div>;
-}
-
-function PairResult({ pair }: { pair: PairResultDto }) {
-  const course = [pair.takenCourse.courseCode, pair.takenCourse.courseTitle].filter(Boolean).join(" — ") || `Transcript course ${pair.takenCourse.sourceCourseId}`;
-  return <li className="rounded-md border bg-slate-50 p-3 text-sm">
-    <div className="flex flex-wrap items-center gap-2"><span className="font-medium">{course}</span><Badge variant={pairVariant(pair.outcome)}>{pair.outcome}</Badge>{pair.decision && <Badge variant="info">{pair.decision}{pair.confidence ? ` · ${pair.confidence}` : ""}</Badge>}</div>
-    <p className="mt-1 text-xs text-muted-foreground">{resolutionLabel(pair.takenResolution)}</p>
-    {pair.rationale && <p className="mt-2">{pair.rationale}</p>}
-    {pair.message && <p className="mt-2 text-amber-800">{pair.message}</p>}
-  </li>;
-}
-
-function RequiredCourseResult({ requirement }: { requirement: RequiredCourseResultDto }) {
-  const [expanded, setExpanded] = useState(true);
-  const course = [requirement.requiredCourse.courseCode, requirement.requiredCourse.courseTitle].filter(Boolean).join(" — ");
-  return <section className="rounded-lg border" aria-label={`Requirement ${course}`}>
-    <button type="button" className="flex w-full items-center justify-between gap-3 p-4 text-left" onClick={() => setExpanded((current) => !current)} aria-expanded={expanded}>
-      <span className="flex min-w-0 items-center gap-2"><span>{expanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}</span><span><span className="block font-semibold">{course}</span><span className="block text-xs text-muted-foreground">{requirement.requiredCourse.institution} · {requirement.requiredCourse.academicYear}</span></span></span>
-      <Badge variant={matchingVariant(requirement.matchingOutcome)}>{requirement.matchingOutcome}</Badge>
-    </button>
-    {expanded && <div className="space-y-3 border-t p-4">
-      <p className="text-sm text-muted-foreground">{resolutionLabel(requirement.requiredResolution)}</p>
-      {requirement.message && <p className="text-sm text-red-700">{requirement.message}</p>}
-      {requirement.matchingOutcome === "matched" && requirement.pairResults.length === 0 && <p className="text-sm text-muted-foreground">No evaluation pairs were produced.</p>}
-      {requirement.matchingOutcome === "unmatched" && <p className="text-sm text-muted-foreground">No semantically matching transcript course was found.</p>}
-      {requirement.pairResults.length > 0 && <ul className="space-y-2">{requirement.pairResults.map((pair) => <PairResult key={pair.pairId} pair={pair} />)}</ul>}
-    </div>}
-  </section>;
-}
-
-function ResultView({ result }: { result: ArticulationResultDto }) {
-  return <div className="space-y-4">
-    <Card><CardHeader className="pb-3"><CardTitle className="text-xl">{result.student.displayName}</CardTitle><CardDescription>Program: {result.degreeProgramId} · Transcript {result.transcriptId} · Result {result.resultId}</CardDescription></CardHeader><CardContent><p className="text-sm text-muted-foreground">Created {new Date(result.createdAt).toLocaleString()}{result.student.externalStudentId ? ` · Student ID ${result.student.externalStudentId}` : ""}</p></CardContent></Card>
-    {result.excludedTakenCourses.length > 0 && <Card><CardHeader className="pb-2"><CardTitle className="text-base">Excluded transcript courses</CardTitle></CardHeader><CardContent><ul className="space-y-2 text-sm">{result.excludedTakenCourses.map((excluded) => <li key={excluded.takenCourse.sourceCourseId}><span className="font-medium">{excluded.takenCourse.courseCode ?? `Course ${excluded.takenCourse.sourceCourseId}`}</span>: {excluded.message} <span className="text-muted-foreground">({excluded.reasonCode})</span></li>)}</ul></CardContent></Card>}
-    <Card><CardHeader className="pb-3"><CardTitle className="text-lg">Required course results</CardTitle><CardDescription>Matching outcomes are separate from individual evaluation outcomes.</CardDescription></CardHeader><CardContent className="space-y-3">{result.requiredCourseResults.length === 0 ? <p className="text-sm text-muted-foreground">This program has no required courses.</p> : result.requiredCourseResults.map((requirement) => <RequiredCourseResult key={requirement.requiredCourseId} requirement={requirement} />)}</CardContent></Card>
-  </div>;
+  );
 }
 
 export function Dashboard() {
   const [selectedStudentKey, setSelectedStudentKey] = useState<string | null>(null);
   const [selectedResultId, setSelectedResultId] = useState<string | null>(null);
+  const [currentCourseIndex, setCurrentCourseIndex] = useState(0);
+  const [searchCourseQuery, setSearchCourseQuery] = useState("");
+  const [evaluatorDecisions, setEvaluatorDecisions] = useState<Record<string, EvaluatorDecision>>({});
+  const [finalDecision, setFinalDecision] = useState<FinalDecision>(null);
+  const [isSubmitted, setIsSubmitted] = useState(false);
+
   const runId = runIdFromLocation();
   const directory = useStudentDirectory();
   const studentResults = useStudentResults(selectedStudentKey);
@@ -118,29 +97,155 @@ export function Dashboard() {
     if (!selectedStudentKey && directory.students.length > 0 && !runId) setSelectedStudentKey(directory.students[0].studentKey);
   }, [directory.students, runId, selectedStudentKey]);
 
+  // Select the student's newest result whenever the current selection isn't one of theirs
+  // (e.g. right after switching students, when the stale id belongs to the previous student).
   useEffect(() => {
-    if (!exactResult.result && studentResults.results.length > 0 && !selectedResultId) setSelectedResultId(studentResults.results[0].resultId);
-  }, [exactResult.result, selectedResultId, studentResults.results]);
+    if (studentResults.results.length === 0) return;
+    const present = selectedResultId !== null && studentResults.results.some((result) => result.resultId === selectedResultId);
+    if (!present) setSelectedResultId(studentResults.results[0].resultId);
+  }, [selectedResultId, studentResults.results]);
 
-  const selectStudent = (studentKey: string) => {
-    setSelectedStudentKey(studentKey);
-    setSelectedResultId(null);
+  // Prefer the run-linked result only while its student is the one selected; once the user
+  // picks a different student, fall back to that student's results (newest if none chosen).
+  const runResultMatchesSelection = exactResult.result !== null
+    && (selectedStudentKey === null || exactResult.result.student.studentKey === selectedStudentKey);
+  const selectedResult = (runResultMatchesSelection ? exactResult.result : null)
+    ?? studentResults.results.find((result) => result.resultId === selectedResultId)
+    ?? studentResults.results[0]
+    ?? null;
+
+  const resetCourseState = () => {
+    setCurrentCourseIndex(0);
+    setEvaluatorDecisions({});
+    setFinalDecision(null);
+    setIsSubmitted(false);
   };
-  const selectedResult = exactResult.result ?? studentResults.results.find((result) => result.resultId === selectedResultId) ?? null;
+
+  // Reset workspace state whenever the active result changes.
+  useEffect(() => { resetCourseState(); }, [selectedResult?.resultId]);
+
+  const mapped = useMemo(() => (selectedResult ? mapArticulationResult(selectedResult) : null), [selectedResult]);
   const activeError = exactResult.error ?? directory.error ?? studentResults.error;
   const loading = exactResult.loading || directory.loading || (selectedStudentKey !== null && studentResults.loading);
 
-  return <main className="flex-1 overflow-auto" aria-busy={loading}>
-    <div className="mx-auto max-w-[1600px] space-y-6 p-6">
-      <div><h2 className="text-2xl font-bold">Articulation results</h2><p className="text-sm text-muted-foreground">Browse completed evaluations by student and run.</p></div>
-      {activeError && <Card className="border-red-300"><CardHeader><CardTitle className="text-red-700">Results could not be loaded</CardTitle><CardDescription>{activeError}</CardDescription></CardHeader><CardContent><Button variant="outline" onClick={() => { void directory.reload(); if (selectedStudentKey) void studentResults.reload(); }}>Try again</Button></CardContent></Card>}
-      {!activeError && loading && <div className="flex items-center gap-2 text-sm text-muted-foreground"><LoaderCircle className="h-4 w-4 animate-spin" />Loading articulation results…</div>}
-      {!activeError && !loading && directory.students.length === 0 && <Card><CardHeader><CardTitle>No articulation results yet</CardTitle><CardDescription>The student directory is empty. Upload a completed transcript to begin an evaluation.</CardDescription></CardHeader></Card>}
-      {!activeError && directory.students.length > 0 && <div className="grid gap-6 lg:grid-cols-[300px_260px_1fr]">
-        <Card><CardHeader className="pb-3"><CardTitle className="text-base">Students</CardTitle></CardHeader><CardContent><StudentPicker students={directory.students} selectedStudentKey={selectedStudentKey} onSelect={selectStudent} />{directory.cursor && <Button variant="outline" className="mt-3 w-full" disabled={directory.loadingMore} onClick={() => void directory.loadNextPage()}>{directory.loadingMore ? "Loading…" : "Load more students"}</Button>}</CardContent></Card>
-        <Card><CardHeader className="pb-3"><CardTitle className="text-base">Result history</CardTitle><CardDescription>Newest result is selected by default.</CardDescription></CardHeader><CardContent className="space-y-2">{studentResults.loading && <p className="text-sm text-muted-foreground">Loading history…</p>}{!studentResults.loading && studentResults.results.length === 0 && <p className="text-sm text-muted-foreground">No results for this student.</p>}{studentResults.results.map((result) => <button type="button" key={result.resultId} onClick={() => setSelectedResultId(result.resultId)} className={`w-full rounded-md border p-3 text-left text-sm hover:bg-slate-50 ${selectedResult?.resultId === result.resultId ? "border-primary bg-primary/5" : ""}`}><span className="block font-medium">{result.degreeProgramId}</span><span className="block text-xs text-muted-foreground">{resultLabel(result)}</span></button>)}{studentResults.cursor && <Button variant="outline" className="w-full" disabled={studentResults.loadingMore} onClick={() => void studentResults.loadNextPage()}>{studentResults.loadingMore ? "Loading…" : "Load more results"}</Button>}</CardContent></Card>
-        <div>{selectedResult ? <ResultView result={selectedResult} /> : <Card><CardHeader><CardTitle>Select a result</CardTitle><CardDescription>Choose a completed result from the history to review its requirement and pair outcomes.</CardDescription></CardHeader></Card>}</div>
-      </div>}
-    </div>
-  </main>;
+  const comparisons = mapped?.comparisons ?? [];
+  const currentComparison = comparisons[currentCourseIndex] ?? comparisons[0];
+
+  const selectStudent = (studentKey: string) => { setSelectedStudentKey(studentKey); setSelectedResultId(null); };
+  const selectCourse = (index: number) => { setCurrentCourseIndex(index); setEvaluatorDecisions({}); setFinalDecision(null); setIsSubmitted(false); };
+  const handleNextCourse = () => { if (currentCourseIndex < comparisons.length - 1) selectCourse(currentCourseIndex + 1); };
+  const handleGenerateReport = () => {
+    if (!mapped) return;
+    window.alert(`Generating evaluation report for ${mapped.student.name}…\n\nEvaluator Decision: ${finalDecision ?? "Pending"}\nStatus: ${isSubmitted ? "Submitted" : "Not submitted"}`);
+  };
+
+  return (
+    <main className="flex-1 overflow-auto" aria-busy={loading}>
+      <div className="mx-auto max-w-[1800px] space-y-6 p-6">
+        {activeError && (
+          <Card className="border-error/40">
+            <CardHeader><CardTitle className="text-error">Results could not be loaded</CardTitle><CardDescription>{activeError}</CardDescription></CardHeader>
+            <CardContent><Button variant="outline" onClick={() => { void directory.reload(); if (selectedStudentKey) void studentResults.reload(); }}>Try again</Button></CardContent>
+          </Card>
+        )}
+
+        {!activeError && loading && (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground"><LoaderCircle className="h-4 w-4 animate-spin" />Loading articulation results…</div>
+        )}
+
+        {!activeError && !loading && directory.students.length === 0 && (
+          <Card><CardHeader><CardTitle>No articulation results yet</CardTitle><CardDescription>The student directory is empty. Upload a completed transcript to begin an evaluation.</CardDescription></CardHeader></Card>
+        )}
+
+        {!activeError && directory.students.length > 0 && (
+          <>
+            {/* Top row: student search + result history + generate report */}
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center">
+                <div className="w-full sm:w-80"><StudentSearch students={directory.students} selectedStudentKey={selectedStudentKey} onSelect={selectStudent} /></div>
+                {studentResults.results.length > 0 && (
+                  <select
+                    aria-label="Result history"
+                    className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm sm:w-72"
+                    value={selectedResult?.resultId ?? ""}
+                    onChange={(event) => setSelectedResultId(event.target.value)}
+                  >
+                    {studentResults.results.map((result: ArticulationResultDto) => (
+                      <option key={result.resultId} value={result.resultId}>{result.degreeProgramId} · {new Date(result.createdAt).toLocaleString()}</option>
+                    ))}
+                  </select>
+                )}
+              </div>
+              {mapped && (
+                <GenerateReportButton
+                  studentName={mapped.student.name}
+                  onGenerate={handleGenerateReport}
+                  coursesReviewed={isSubmitted ? 1 : 0}
+                  totalCourses={comparisons.length}
+                  hasOverrides={Object.values(evaluatorDecisions).some((decision) => decision === "override")}
+                  finalDecision={finalDecision}
+                  isSubmitted={isSubmitted}
+                />
+              )}
+            </div>
+
+            <Separator />
+
+            {mapped && currentComparison ? (
+              <div className="grid grid-cols-1 gap-6 lg:grid-cols-[240px_1fr_300px]">
+                {/* LEFT: student info + required course navigation */}
+                <div className="space-y-4">
+                  <StudentInformationCard student={mapped.student} />
+                  <RequirementsCard
+                    requiredCourses={mapped.requiredCourses}
+                    courseComparisons={comparisons}
+                    currentCourseIndex={currentCourseIndex}
+                    onSelectCourse={selectCourse}
+                  />
+                </div>
+
+                {/* CENTER: course search + comparison workspace + source material */}
+                <div className="space-y-4">
+                  <div className="relative mx-auto max-w-md">
+                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      placeholder="Search Course..."
+                      value={searchCourseQuery}
+                      onChange={(event) => setSearchCourseQuery(event.target.value)}
+                      className="border-amber-200 bg-amber-50 pl-9 focus-visible:ring-amber-400"
+                      aria-label="Search course"
+                    />
+                  </div>
+                  <CourseComparisonWorkspace comparison={currentComparison} onDecisionsChange={setEvaluatorDecisions} />
+                  <SourceMaterialCard materials={mapped.sourceMaterials} />
+                </div>
+
+                {/* RIGHT: error summary + notes + final decision + next */}
+                <div className="space-y-4">
+                  <ErrorSummaryCard comparisons={comparisons} currentComparison={currentComparison} evaluatorDecisions={evaluatorDecisions} />
+                  <EvaluatorNotes courseNumber={currentComparison.transferCourse.courseNumber} />
+                  <Separator />
+                  <FinalDecisionCard
+                    decision={finalDecision}
+                    onDecisionChange={setFinalDecision}
+                    onSubmit={() => setIsSubmitted(true)}
+                    isSubmitted={isSubmitted}
+                    courseNumber={currentComparison.transferCourse.courseNumber}
+                  />
+                  {currentCourseIndex < comparisons.length - 1 && (
+                    <Button variant="outline" size="sm" className="w-full" onClick={handleNextCourse}>
+                      OPEN NEXT COURSE
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+              </div>
+            ) : (
+              !loading && <Card><CardHeader><CardTitle>Select a result</CardTitle><CardDescription>Choose a student and a completed result to review its course comparisons.</CardDescription></CardHeader></Card>
+            )}
+          </>
+        )}
+      </div>
+    </main>
+  );
 }

@@ -90,6 +90,16 @@ export type CatalogResolutionDto =
       message: string;
     };
 
+export interface CatalogContentDto {
+  department?: string;
+  title?: string;
+  description?: string;
+  credits?: number;
+  learningOutcomes?: string[];
+  topics?: string[];
+  competencies?: string[];
+}
+
 export interface PairResultDto {
   pairId: string;
   takenCourse: TakenCourseDto;
@@ -99,6 +109,8 @@ export interface PairResultDto {
   confidence?: "HIGH" | "MEDIUM" | "LOW";
   rationale?: string;
   message?: string;
+  /** Catalog content of the matched transcript course (description/topics/credits). */
+  takenCatalogContent?: CatalogContentDto;
 }
 
 export interface RequiredCourseResultDto {
@@ -107,6 +119,8 @@ export interface RequiredCourseResultDto {
   requiredResolution: CatalogResolutionDto;
   matchingOutcome: "matched" | "unmatched" | "unresolved" | "errored";
   message?: string;
+  /** Catalog content of the required (destination) course (description/topics/credits). */
+  requiredCatalogContent?: CatalogContentDto;
   pairResults: PairResultDto[];
 }
 

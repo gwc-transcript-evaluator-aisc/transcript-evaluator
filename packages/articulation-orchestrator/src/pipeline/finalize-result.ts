@@ -2,7 +2,7 @@ import { ArticulationResultSchema, type ArticulationResult } from '../domain/art
 import type { RequiredCourse, DegreeProgram } from '../domain/degree-program.js';
 import { normalizedRequiredCourseIdentifier } from '../domain/degree-program.js';
 import type { OrchestrationRun } from '../domain/orchestration-run.js';
-import type { PairResult, RequiredCourseResult } from '../domain/course-result.js';
+import type { CatalogContent, PairResult, RequiredCourseResult } from '../domain/course-result.js';
 import type { WorkRecord } from '../domain/work-record.js';
 import { ResultsStore, resultLocatorFor } from '../store/results-store.js';
 import type { RunsStore } from '../store/runs-store.js';
@@ -69,6 +69,10 @@ export function assembleArticulationResult(run: OrchestrationRun, program: Degre
   const pairResults = new Map(records
     .filter((record): record is Extract<WorkRecord, { recordType: 'PAIR_RESULT' }> => record.recordType === 'PAIR_RESULT')
     .map((record) => [record.result.pairId, record.result]));
+  // Catalog content of each resolved transcript (candidate) course, keyed for pair joins.
+  const candidateContentById = new Map(records
+    .filter((record): record is Extract<WorkRecord, { recordType: 'CANDIDATE' }> => record.recordType === 'CANDIDATE')
+    .map((record) => [record.sourceCourseId, record.catalogContent]));
   const pairsByRequired = new Map<string, Extract<WorkRecord, { recordType: 'PAIR' }>[] >();
   for (const pair of records.filter((record): record is Extract<WorkRecord, { recordType: 'PAIR' }> => record.recordType === 'PAIR')) {
     const pairs = pairsByRequired.get(pair.requiredCourseId) ?? [];
@@ -78,7 +82,7 @@ export function assembleArticulationResult(run: OrchestrationRun, program: Degre
 
   const requiredCourseResults = expectedIds.map((requiredCourseId, index) => {
     const record = requiredById.get(requiredCourseId)!;
-    return requiredResult(record, program.requiredCourses[index]!, pairsByRequired.get(requiredCourseId) ?? [], pairResults);
+    return requiredResult(record, program.requiredCourses[index]!, pairsByRequired.get(requiredCourseId) ?? [], pairResults, candidateContentById);
   });
   return ArticulationResultSchema.parse({
     resultId: run.runId,
@@ -100,6 +104,7 @@ function requiredResult(
   expectedCourse: RequiredCourse,
   pairs: Extract<WorkRecord, { recordType: 'PAIR' }>[],
   pairResults: Map<string, PairResult>,
+  candidateContentById: Map<number, CatalogContent>,
 ): RequiredCourseResult {
   if (normalizedRequiredCourseIdentifier(record.requiredCourse) !== normalizedRequiredCourseIdentifier(expectedCourse)) {
     throw new FinalizeResultError('INCOMPLETE_REQUIRED_RESULTS', 'Required course work records do not match the program.');
@@ -112,10 +117,17 @@ function requiredResult(
     message: 'Course matching could not be completed.',
     pairResults: [],
   };
-  if (base.matchingOutcome !== 'matched') return { ...base, pairResults: [] };
-  const resolvedPairs = pairs.map((pair) => pairResults.get(pair.pairId));
+  // Surface the destination course's catalog content (description/topics/credits) on the result.
+  const withContent = { ...base, requiredCatalogContent: record.catalogContent };
+  if (withContent.matchingOutcome !== 'matched') return { ...withContent, pairResults: [] };
+  const resolvedPairs: (PairResult | undefined)[] = pairs.map((pair) => {
+    const result = pairResults.get(pair.pairId);
+    if (!result) return undefined;
+    // Attach the matched transcript course's catalog content, joined by sourceCourseId.
+    return { ...result, takenCatalogContent: result.takenCatalogContent ?? candidateContentById.get(pair.sourceCourseId) };
+  });
   if (resolvedPairs.some((result) => !result)) {
     throw new FinalizeResultError('INCOMPLETE_PAIR_RESULTS', 'Course pair evaluation results are incomplete.');
   }
-  return { ...base, pairResults: resolvedPairs.filter((result): result is PairResult => result !== undefined).sort((left, right) => left.pairId.localeCompare(right.pairId)) };
+  return { ...withContent, pairResults: (resolvedPairs as PairResult[]).sort((left, right) => left.pairId.localeCompare(right.pairId)) };
 }

@@ -1,19 +1,10 @@
 import { z } from 'zod';
 import { CatalogResolutionSchema, CourseIdentifierSchema } from './catalog-resolution.js';
 import { RequiredCourseSchema } from './degree-program.js';
-import { PairResultSchema, RequiredCourseResultSchema } from './course-result.js';
+import { CatalogContentSchema, PairResultSchema, RequiredCourseResultSchema } from './course-result.js';
 import { NormalizedStudentSchema, TakenCourseSchema } from './transcript.js';
 
-const CatalogContentSchema = z.object({
-  department: z.string().trim().min(1).max(200).optional(),
-  title: z.string().trim().min(1).max(200).optional(),
-  description: z.string().trim().min(1).max(20_000).optional(),
-  credits: z.number().finite().optional(),
-  learningOutcomes: z.array(z.string().trim().min(1).max(2_000)).optional(),
-  topics: z.array(z.string().trim().min(1).max(2_000)).optional(),
-  competencies: z.array(z.string().trim().min(1).max(2_000)).optional(),
-}).strict();
-export type CatalogContent = z.infer<typeof CatalogContentSchema>;
+export type { CatalogContent } from './course-result.js';
 
 const WorkRecordBaseSchema = z.object({
   runId: z.string().uuid(),

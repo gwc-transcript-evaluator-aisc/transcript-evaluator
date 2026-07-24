@@ -1,81 +1,87 @@
-# Summer Camp
+# Summer Camp — Transfer-Credit Articulation Platform
 
-Course catalog extraction and articulation platform powered by AWS Bedrock.
+Summer Camp helps a receiving college decide whether the courses a student took
+elsewhere satisfy the requirements of one of its degree programs. It turns a stack of
+PDF transcripts and course catalogs into structured data, then uses AWS Bedrock to
+reason about course equivalence — giving a human evaluator an AI-assisted, evidence-backed
+recommendation for each required course instead of a manual, page-by-page comparison.
 
-## Monorepo Structure
+## The problem it solves
 
-```
-summer-camp/
-├── packages/
-│   ├── course-catalog-api/    # Course catalog extraction API (CDK/Lambda)
-│   └── shared/                # Shared types and utilities (future)
-├── .agents/                   # Kiro AI agents
-├── .kiro/                     # Kiro configuration
-└── package.json               # Root workspace configuration
-```
+Evaluating transfer credit is slow and inconsistent. An evaluator has to read a student's
+transcript, find the catalog description of each course they took, compare it against the
+description of the course it might replace, and apply program and grade policies by hand —
+repeated for every course, every student, every term.
 
-## Getting Started
+Summer Camp automates the mechanical parts of that work and keeps the human in the loop
+for the judgment call:
 
-### Prerequisites
+- **Read the documents.** Transcripts and course catalogs arrive as PDFs; the platform
+  extracts students, courses, credits, terms, and full catalog descriptions.
+- **Find the candidates.** For a chosen degree program, it matches a student's completed
+  courses against the program's required courses.
+- **Judge equivalence.** For each candidate pair it produces a decision
+  (equivalent / partial / not equivalent), a confidence level, and a written rationale,
+  grounded in the real catalog descriptions of both courses.
+- **Let a human decide.** An evaluator dashboard shows the side-by-side comparison and the
+  AI's reasoning, and lets the evaluator agree, override, add notes, and record a final
+  decision.
 
-- Node.js >= 22.0.0
-- npm >= 10.0.0
-- AWS CLI configured with appropriate credentials
-- AWS CDK CLI (`npm install -g aws-cdk`)
+## How it works
 
-### Installation
+A student's evaluation flows through four stages:
 
-```bash
-# Install all workspace dependencies
-npm install
+1. **Transcript intake.** A transcript PDF is uploaded and processed asynchronously with
+   Amazon Bedrock Data Automation against a custom transcript blueprint. The extracted
+   student profile and course list are persisted, and the record is marked complete when
+   extraction finishes.
 
-# Build all packages
-npm run build
+2. **Catalog knowledge.** Course catalogs are extracted into a queryable store of course
+   descriptions, keyed by institution and academic year. This is the source of truth the
+   equivalence step reasons over, so decisions are based on real course content rather than
+   course codes alone.
 
-# Run all tests
-npm run test
-```
+3. **Articulation run.** Once a transcript is ready, an orchestration workflow evaluates it
+   against a selected degree program. It resolves both the required courses and the
+   student's courses to their catalog descriptions, matches likely candidates, and evaluates
+   each pair for equivalence. Matching and evaluation are AI steps; the workflow is durable
+   and processes courses in parallel.
 
-## Packages
+4. **Review.** Results are exposed per student and per run. The dashboard presents each
+   required course, the matched transfer course, the side-by-side descriptions, and the AI
+   decision, confidence, and rationale — with controls for the evaluator to override and
+   finalize.
 
-### course-catalog-api
+## Built on AWS
 
-Asynchronous course catalog extraction API using S3, Step Functions, and Bedrock Data Automation.
+The platform is serverless and defined as infrastructure-as-code (AWS CDK). It uses:
 
-Features:
-- PDF upload via presigned S3 URLs
-- Automatic page splitting and parallel processing
-- Course data extraction using Bedrock blueprints
-- DynamoDB storage with single-table design
-- Static web UI for testing
+- **Amazon Bedrock** — Data Automation for document extraction, and foundation models for
+  course matching and equivalence assessment.
+- **AWS Lambda + Step Functions** — asynchronous, durable processing of transcripts and
+  articulation runs.
+- **Amazon S3, DynamoDB, and Aurora PostgreSQL** — document, catalog/result, and transcript
+  storage.
+- **Amazon API Gateway + CloudFront/S3** — the APIs and the hosted evaluator dashboard
+  (a React single-page app).
 
-[See package README](./packages/course-catalog-api/README.md) for details.
+## Status
 
-## Development
+This is a working prototype. It demonstrates the end-to-end path from an uploaded transcript
+to an AI-assisted articulation result, but it is not hardened for production use.
 
-### Adding a New Package
+### Prototype API access (not production-safe)
 
-1. Create directory: `mkdir packages/my-new-package`
-2. Initialize: `cd packages/my-new-package && npm init`
-3. Set package name: `@summer-camp/my-new-package`
-4. Install from root: `npm install`
-
-### Running Commands in Specific Packages
-
-```bash
-# Run command in specific package
-npm run build -w packages/course-catalog-api
-
-# Deploy course catalog API
-npm run cdk deploy -w packages/course-catalog-api
-```
+The orchestrator API is protected by a single shared API key generated into AWS Secrets
+Manager at deploy time; the value is intentionally never a stack output. An authorized
+operator retrieves it and supplies it to the browser build as `VITE_ORCHESTRATOR_API_KEY`,
+along with the API base URL as `VITE_ORCHESTRATOR_API_BASE_URL`. Because any `VITE_` value is
+embedded in the browser bundle, every user of the site can extract this shared key — so it is
+suitable only for this non-production prototype and must be replaced with per-user
+authentication and authorization before production. Do not commit the key, place it in CDK
+context, or print it in deployment logs. Local stacks (`-c local=true`) bypass API-key
+verification.
 
 ## License
 
 MIT
-
-## Articulation Orchestrator prototype access
-
-The orchestrator CDK stack creates a generated shared API key in AWS Secrets Manager and grants `secretsmanager:GetSecretValue` only to its API Lambda. The secret value is deliberately not an output. After deployment, an authorized operator must retrieve the generated secret value from the stack's Secrets Manager secret and provide it to the browser build/runtime as `VITE_ORCHESTRATOR_API_KEY`; also provide `VITE_ORCHESTRATOR_API_BASE_URL` from the `ApiUrl` output. The client sends the key in `x-api-key`.
-
-This is intentionally **not production-safe**: any `VITE_` value is embedded in browser assets, so every browser user can extract the shared key. Use it only for this non-production prototype; replace it with per-user authentication and authorization before production. Do not commit the key, place it in CDK context, or print it in deployment logs. For local CDK stacks, use `-c local=true`; local mode explicitly bypasses API-key verification.

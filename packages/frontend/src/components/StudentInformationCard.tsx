@@ -1,4 +1,4 @@
-import { User, School, GraduationCap, Hash, CalendarCheck } from "lucide-react";
+import { User, School, Hash, CalendarCheck } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Student } from "@/types/student";
@@ -36,14 +36,8 @@ export function StudentInformationCard({ student }: StudentInformationCardProps)
           </div>
           <Separator />
           <div className="flex items-start gap-2">
-            <GraduationCap className="h-3.5 w-3.5 mt-0.5 text-muted-foreground" />
-            <span className="font-medium text-muted-foreground min-w-[110px]">Intended Major:</span>
-            <span>{student.intendedMajor}</span>
-          </div>
-          <Separator />
-          <div className="flex items-start gap-2">
             <CalendarCheck className="h-3.5 w-3.5 mt-0.5 text-muted-foreground" />
-            <span className="font-medium text-muted-foreground min-w-[110px]">Applying For:</span>
+            <span className="font-medium text-muted-foreground min-w-[110px]">Program:</span>
             <span className="font-semibold">{student.applyingFor}</span>
           </div>
         </div>
